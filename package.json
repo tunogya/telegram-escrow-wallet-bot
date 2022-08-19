@@ -1,0 +1,12 @@
+{
+  "name": "wizardingpay-telegram-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:wakandalabs/wizardingpay-telegram-bot.git",
+  "author": "tunogya <tunogya@qq.com>",
+  "license": "GPL3",
+  "dependencies": {
+    "lambda-request-handler": "^0.5.1-alpha1",
+    "telegraf": "^4.8.6"
+  }
+}
