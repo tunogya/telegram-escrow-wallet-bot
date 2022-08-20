@@ -23,3 +23,6 @@ exports.handler = (event, context, callback) => {
     body: '',
   });
 };
+
+// Make sure set bot webhook to point to this function
+// https://api.telegram.org/bot<token>/setWebhook?url=https://<your-domain>
