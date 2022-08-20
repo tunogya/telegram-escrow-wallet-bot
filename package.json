@@ -6,7 +6,6 @@
   "author": "tunogya <tunogya@qq.com>",
   "license": "GPL3",
   "dependencies": {
-    "lambda-request-handler": "^0.5.1-alpha1",
     "telegraf": "^4.8.6"
   }
 }
