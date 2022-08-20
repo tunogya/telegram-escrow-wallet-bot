@@ -14,12 +14,10 @@ const replyL1MenuContent = (ctx) => ctx.reply(`
 Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
 
 Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
-`,
-    Markup.inlineKeyboard([
+`, Markup.inlineKeyboard([
       [Markup.button.callback('💰 My Wallet', 'my_wallet')],
       [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('⚙️ Settings', 'settings')]
-    ])
-)
+    ]))
 
 bot.start(replyL1MenuContent)
 bot.command('menu', replyL1MenuContent)
