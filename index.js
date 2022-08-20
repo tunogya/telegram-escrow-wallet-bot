@@ -1,4 +1,4 @@
-const { Telegraf, Markup} = require('telegraf')
+const {Telegraf, Markup} = require('telegraf')
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -6,7 +6,7 @@ if (token === undefined) {
 }
 
 const bot = new Telegraf(token, {
-  telegram: { webhookReply: true },
+  telegram: {webhookReply: true},
   handlerTimeout: 3000,
 })
 
@@ -14,16 +14,21 @@ bot.start((ctx) => ctx.reply(`
 Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
 
 Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
-`))
+`,
+    Markup.inlineKeyboard([
+      [Markup.button.callback('My Wallet', 'my_wallet')],
+      [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('Settings', 'settings')]
+    ])
+))
 
 bot.command('menu', (ctx) => ctx.reply(`Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
 
 Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.`,
     Markup.inlineKeyboard([
-        [Markup.button.callback('My Wallet', 'my_wallet')],
-        [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('Settings', 'settings')],
-        [Markup.button.url('Open Web App', 'https://app.wizardingpay.com')]
-    ])))
+      [Markup.button.callback('My Wallet', 'my_wallet')],
+      [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('Settings', 'settings')]
+    ])
+))
 
 bot.command('wallet', (ctx) => ctx.reply('Your wallet address is: ' + ctx.from.id))
 
