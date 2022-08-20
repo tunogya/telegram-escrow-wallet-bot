@@ -123,6 +123,31 @@ Local currency: USD`, Markup.inlineKeyboard([
   )
 }
 
+// L3 set_language
+const editReplyL3SetLanguageMenuContent = async (ctx) => {
+  await ctx.editMessageText(`Please, select a language`, Markup.inlineKeyboard([
+        [Markup.button.callback('🇬🇧 English', 'set_language_en')],
+        [Markup.button.callback('🇨🇳 简体中文', 'set_language_zh')],
+        [Markup.button.callback('« Back', 'backToL2SettingsMenuContent')]
+      ])
+  )
+}
+
+bot.action('set_language', editReplyL3SetLanguageMenuContent)
+
+// L3 set_local_currency
+
+const editReplyL3SetLocalCurrencyMenuContent = async (ctx) => {
+  await ctx.editMessageText(`Please, select a local currency`, Markup.inlineKeyboard([
+        [Markup.button.callback('USD', 'set_local_currency_usd')],
+        [Markup.button.callback('RMB', 'set_local_currency_rmb')],
+        [Markup.button.callback('« Back', 'backToL2SettingsMenuContent')]
+      ])
+  )
+}
+
+bot.action('set_local_currency', editReplyL3SetLocalCurrencyMenuContent)
+
 bot.command('settings', replyL2SettingsMenuContent)
 bot.action('settings', editReplyL2SettingsMenuContent)
 bot.action('backToL2SettingsMenuContent', editReplyL2SettingsMenuContent)
