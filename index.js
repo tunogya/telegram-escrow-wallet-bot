@@ -42,8 +42,8 @@ const replyL2WalletMenuContent = (ctx) => ctx.reply(`💰 My Wallet
 
 BTC: 0.00`, Markup.inlineKeyboard([
       [Markup.button.callback('Deposit', 'deposit'), Markup.button.callback('Withdraw', 'withdraw')],
-      [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
       [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
+      [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
       [Markup.button.callback('« Back', 'backToL1MenuContent')]
     ])
 )
@@ -55,8 +55,8 @@ const editReplyL2WalletMenuContent = async (ctx) => {
 
 BTC: 0.00`, Markup.inlineKeyboard([
         [Markup.button.callback('Deposit', 'deposit'), Markup.button.callback('Withdraw', 'withdraw')],
-        [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
         [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
+        [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
         [Markup.button.callback('« Back', 'backToL1MenuContent')]
       ])
   )
