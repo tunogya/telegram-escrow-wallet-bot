@@ -5,10 +5,7 @@ if (token === undefined) {
   throw new Error('BOT_TOKEN must be provided!')
 }
 
-const bot = new Telegraf(token, {
-  telegram: {webhookReply: true},
-  handlerTimeout: 3000,
-})
+const bot = new Telegraf(token)
 
 // L1 Menu
 const replyL1MenuContent = async (ctx) => {
