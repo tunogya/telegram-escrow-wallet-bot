@@ -1,4 +1,12 @@
 const {Telegraf, Markup} = require('telegraf')
+const { PutCommand, DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+
+const ddbClient = new DynamoDBClient({
+  region: 'ap-northeast-1',
+});
+
+const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -33,7 +41,26 @@ Join our channel (https://t.me/wizardingpay) to receive news about the crypto ma
   )
 }
 
-bot.start(replyL1MenuContent)
+bot.start(async (ctx)=> {
+  await replyL1MenuContent(ctx)
+  ddbDocClient.send(new GetCommand({
+    TableName: 'wizardingpay',
+    Key: {
+      id: ctx.from.id,
+      sort: "telegram",
+    }
+  })).then((res) => {
+    if (!res.Item) {
+      ddbDocClient.send(new PutCommand({
+        TableName: 'wizardingpay',
+        Item: {
+          id: ctx.from.id,
+          sort: "telegram"
+        }
+      })).catch(e => console.log(e))
+    }
+  }).catch(e => console.log(e))
+})
 bot.command('menu', replyL1MenuContent)
 bot.action('backToL1MenuContent', editReplyL1MenuContent)
 
@@ -152,10 +179,10 @@ bot.command('settings', replyL2SettingsMenuContent)
 bot.action('settings', editReplyL2SettingsMenuContent)
 bot.action('backToL2SettingsMenuContent', editReplyL2SettingsMenuContent)
 
-exports.handler = (event, context, callback) => {
-  const tmp = JSON.parse(event.body); // get data passed to us
-  bot.handleUpdate(tmp); // make Telegraf process that data
-  return callback(null, { // return something for webhook, so it doesn't try to send same stuff again
+exports.handler = async (event, context, callback) => {
+  const tmp = JSON.parse(event.body);
+  await bot.handleUpdate(tmp);
+  return callback(null, {
     statusCode: 200,
     body: '',
   });

@@ -6,6 +6,7 @@
   "author": "tunogya <tunogya@qq.com>",
   "license": "GPL3",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.154.0",
     "telegraf": "^4.8.6"
   }
 }
