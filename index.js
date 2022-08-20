@@ -1,4 +1,4 @@
-const { Telegraf } = require('telegraf')
+const { Telegraf, Markup} = require('telegraf')
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -10,11 +10,28 @@ const bot = new Telegraf(token, {
   handlerTimeout: 3000,
 })
 
-bot.start((ctx) => ctx.reply('Hello'))
+bot.start((ctx) => ctx.reply(`
+Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
 
-bot.on('text', ctx => {
-  return ctx.reply('Hello from Lambda');
-});
+Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
+`))
+
+bot.command('menu', (ctx) => ctx.reply(`Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
+
+Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.`,
+    Markup.inlineKeyboard([
+        [Markup.button.callback('My Wallet', 'my_wallet')],
+        [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('Settings', 'settings')],
+        [Markup.button.url('Open Web App', 'https://app.wizardingpay.com')]
+    ])))
+
+bot.command('wallet', (ctx) => ctx.reply('Your wallet address is: ' + ctx.from.id))
+
+bot.command('cheques', (ctx) => ctx.reply(''))
+
+bot.command('exchange', (ctx) => ctx.reply(''))
+
+bot.command('setting', (ctx) => ctx.reply(''))
 
 exports.handler = (event, context, callback) => {
   const tmp = JSON.parse(event.body); // get data passed to us
@@ -24,6 +41,3 @@ exports.handler = (event, context, callback) => {
     body: '',
   });
 };
-
-// Make sure set bot webhook to point to this function
-// https://api.telegram.org/bot<token>/setWebhook?url=https://<your-domain>
