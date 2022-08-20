@@ -6,7 +6,8 @@ if (token === undefined) {
 }
 
 const bot = new Telegraf(token, {
-  telegram: { webhookReply: true }
+  telegram: { webhookReply: true },
+  handlerTimeout: 3000,
 })
 
 bot.start((ctx) => ctx.reply('Hello'))
