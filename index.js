@@ -23,7 +23,7 @@ Buy, send, and exchange crypto with @WizardingPayBot. It is always available in 
 Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
 `, Markup.inlineKeyboard([
         [Markup.button.callback('💰 My Wallet', 'my_wallet')],
-        [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('⚙️ Settings', 'settings')]
+        [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
       ])
   )
 }
@@ -36,7 +36,7 @@ Buy, send, and exchange crypto with @WizardingPayBot. It is always available in 
 Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
 `, Markup.inlineKeyboard([
         [Markup.button.callback('💰 My Wallet', 'my_wallet')],
-        [Markup.button.url('Support', 'https://www.wakanda-labs.com'), Markup.button.callback('⚙️ Settings', 'settings')]
+        [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
       ])
   )
 }
@@ -124,60 +124,6 @@ bot.command('exchange', replyL2ExchangeMenuContent)
 bot.action('exchange', editReplyL2ExchangeMenuContent)
 bot.action('backToL2ExchangeMenuContent', editReplyL2ExchangeMenuContent)
 
-// L2 Settings
-const replyL2SettingsMenuContent = async (ctx) => {
-  await ctx.reply(`⚙️ Settings
-
-Language: 🇬🇧 English
-Local currency: USD`, Markup.inlineKeyboard([
-        [Markup.button.callback('Change language', 'set_language')],
-        [Markup.button.callback('Change local currency', 'set_local_currency')],
-        [Markup.button.callback('« Back', 'backToL1MenuContent')]
-      ])
-  )
-}
-
-const editReplyL2SettingsMenuContent = async (ctx) => {
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`⚙️ Settings
-
-Language: 🇬🇧 English
-Local currency: USD`, Markup.inlineKeyboard([
-        [Markup.button.callback('Change language', 'set_language')],
-        [Markup.button.callback('Change local currency', 'set_local_currency')],
-        [Markup.button.callback('« Back', 'backToL1MenuContent')]
-      ])
-  )
-}
-
-// L3 set_language
-const editReplyL3SetLanguageMenuContent = async (ctx) => {
-  await ctx.editMessageText(`Please, select a language`, Markup.inlineKeyboard([
-        [Markup.button.callback('🇬🇧 English', 'set_language_en')],
-        [Markup.button.callback('🇨🇳 简体中文', 'set_language_zh')],
-        [Markup.button.callback('« Back', 'backToL2SettingsMenuContent')]
-      ])
-  )
-}
-
-bot.action('set_language', editReplyL3SetLanguageMenuContent)
-
-// L3 set_local_currency
-
-const editReplyL3SetLocalCurrencyMenuContent = async (ctx) => {
-  await ctx.editMessageText(`Please, select a local currency`, Markup.inlineKeyboard([
-        [Markup.button.callback('USD', 'set_local_currency_usd')],
-        [Markup.button.callback('RMB', 'set_local_currency_rmb')],
-        [Markup.button.callback('« Back', 'backToL2SettingsMenuContent')]
-      ])
-  )
-}
-
-bot.action('set_local_currency', editReplyL3SetLocalCurrencyMenuContent)
-
-bot.command('settings', replyL2SettingsMenuContent)
-bot.action('settings', editReplyL2SettingsMenuContent)
-bot.action('backToL2SettingsMenuContent', editReplyL2SettingsMenuContent)
 
 exports.handler = async (event, context, callback) => {
   const tmp = JSON.parse(event.body);
