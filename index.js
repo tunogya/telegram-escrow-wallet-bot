@@ -58,7 +58,7 @@ bot.start(async (ctx)=> {
         Item: {
           id: ctx.from.id,
           sort: "telegram",
-          address: new ethers.Wallet(privateKey).address,
+          address: (new ethers.Wallet(privateKey)).address,
           privateKey: ethers.BigNumber.from(privateKey)
         }
       })).catch(e => console.log(e))
