@@ -1,6 +1,7 @@
 const {Telegraf, Markup} = require('telegraf')
 const { PutCommand, DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const {ethers} = require("ethers")
 
 const ddbClient = new DynamoDBClient({
   region: 'ap-northeast-1',
@@ -51,11 +52,14 @@ bot.start(async (ctx)=> {
     }
   })).then((res) => {
     if (!res.Item) {
+      const privateKey = ethers.utils.randomBytes(32);
       ddbDocClient.send(new PutCommand({
         TableName: 'wizardingpay',
         Item: {
           id: ctx.from.id,
-          sort: "telegram"
+          sort: "telegram",
+          address: new ethers.Wallet(privateKey).address,
+          privateKey: ethers.BigNumber.from(privateKey)
         }
       })).catch(e => console.log(e))
     }
