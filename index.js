@@ -1,4 +1,4 @@
-const {Telegraf, Markup} = require('telegraf')
+const {Telegraf, Markup, session} = require('telegraf')
 const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {ethers} = require("ethers")
@@ -15,6 +15,7 @@ if (token === undefined) {
 }
 
 const bot = new Telegraf(token)
+bot.use(session())
 
 // L1 Menu
 const replyL1MenuContent = async (ctx) => {
@@ -157,7 +158,7 @@ You can deposit crypto to this address.
 // L3 Withdraw
 bot.action('withdraw', async (ctx) => {
   // save an action to the ctx
-  ctx.state.action = 'withdraw'
+  ctx.session = { intent: 'withdraw' }
   await ctx.answerCbQuery()
   ctx.editMessageText('Input your withdrawal address', Markup.inlineKeyboard([
     [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
@@ -165,8 +166,7 @@ bot.action('withdraw', async (ctx) => {
 })
 
 bot.on('message', async (ctx) => {
-  console.log(ctx)
-  const action = ctx.state.action
+  const action = ctx.state?.intent
   ctx.reply(`${action}`)
 })
 
