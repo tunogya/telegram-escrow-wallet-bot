@@ -1,6 +1,6 @@
 const {Telegraf, Markup} = require('telegraf')
-const { PutCommand, DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-dynamodb');
+const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {ethers} = require("ethers")
 
 const ddbClient = new DynamoDBClient({
@@ -42,7 +42,7 @@ Join our channel (https://t.me/wizardingpay) to receive news about the crypto ma
   )
 }
 
-bot.start(async (ctx)=> {
+bot.start(async (ctx) => {
   await replyL1MenuContent(ctx)
   ddbDocClient.send(new GetCommand({
     TableName: 'wizardingpay',
@@ -72,7 +72,7 @@ bot.action('backToL1MenuContent', editReplyL1MenuContent)
 const replyL2WalletMenuContent = (ctx) => ctx.reply(`💰 My Wallet
 
 BTC: 0.00`, Markup.inlineKeyboard([
-      [Markup.button.callback('Deposit', 'deposit'), Markup.button.callback('Withdraw', 'withdraw')],
+      [Markup.button.callback('💰 Deposit', 'deposit'), Markup.button.callback('➕ Withdraw', 'withdraw')],
       [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
       [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
       [Markup.button.callback('« Back', 'backToL1MenuContent')]
@@ -85,7 +85,7 @@ const editReplyL2WalletMenuContent = async (ctx) => {
 💰 My Wallet
 
 BTC: 0.00`, Markup.inlineKeyboard([
-        [Markup.button.callback('Deposit', 'deposit'), Markup.button.callback('Withdraw', 'withdraw')],
+        [Markup.button.callback('💰 Deposit', 'deposit'), Markup.button.callback('➕ Withdraw', 'withdraw')],
         [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
         [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
         [Markup.button.callback('« Back', 'backToL1MenuContent')]
@@ -123,6 +123,46 @@ const editReplyL2ExchangeMenuContent = async (ctx) => {
       ])
   )
 }
+
+// L3 Deposit
+bot.action('deposit', async (ctx) => {
+  const res = ddbDocClient.send(new GetCommand({
+    TableName: 'wizardingpay',
+    Key: {
+      id: ctx.from.id,
+      sort: "telegram",
+    }
+  }))
+  if (res?.Item) {
+    const address = res.Item.address ?? undefined
+    await ctx.answerCbQuery()
+    await ctx.reply(`
+💰 Deposit
+
+Your address: ${address}
+
+You can deposit crypto to this address.
+`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+        ])
+    )
+  }
+})
+
+// L3 Withdraw
+bot.action('withdraw', async (ctx) => {
+  // save an action to the ctx
+  ctx.session.action = 'withdraw'
+  await ctx.answerCbQuery()
+  ctx.reply('Input your withdrawal address', Markup.inlineKeyboard([
+    [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+  ]))
+})
+
+bot.on('message', async (ctx) => {
+  const action = ctx.session.action
+  ctx.reply(`${action}`)
+})
 
 bot.command('exchange', replyL2ExchangeMenuContent)
 bot.action('exchange', editReplyL2ExchangeMenuContent)
