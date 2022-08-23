@@ -126,17 +126,17 @@ const editReplyL2ExchangeMenuContent = async (ctx) => {
 
 // L3 Deposit
 bot.action('deposit', async (ctx) => {
-  const res = ddbDocClient.send(new GetCommand({
+  const res = await ddbDocClient.send(new GetCommand({
     TableName: 'wizardingpay',
     Key: {
-      id: ctx.from.id,
+      id: ctx.update.callback_query.from.id,
       sort: "telegram",
     }
   }))
   if (res?.Item) {
     const address = res.Item.address ?? undefined
     await ctx.answerCbQuery()
-    await ctx.reply(`
+    await ctx.editMessageText(`
 💰 Deposit
 
 Your address: ${address}
@@ -146,21 +146,27 @@ You can deposit crypto to this address.
           [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
         ])
     )
+  } else {
+    await ctx.answerCbQuery()
+    ctx.editMessageText(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+    ]))
   }
 })
 
 // L3 Withdraw
 bot.action('withdraw', async (ctx) => {
   // save an action to the ctx
-  ctx.session.action = 'withdraw'
+  ctx.state.action = 'withdraw'
   await ctx.answerCbQuery()
-  ctx.reply('Input your withdrawal address', Markup.inlineKeyboard([
+  ctx.editMessageText('Input your withdrawal address', Markup.inlineKeyboard([
     [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
   ]))
 })
 
 bot.on('message', async (ctx) => {
-  const action = ctx.session.action
+  console.log(ctx)
+  const action = ctx.state.action
   ctx.reply(`${action}`)
 })
 
