@@ -13,7 +13,7 @@
 ```
 
 
-https://t.me/WizardingBankBot
+https://t.me/WizardingPayBot
 
 ## Deploy on AWS Lambda
 
