@@ -2,6 +2,7 @@ const {Telegraf, Markup, session} = require('telegraf')
 const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {ethers} = require("ethers")
+const QRCode = require('qrcode');
 
 //
 //     ####   ####  #    # ###### #  ####
@@ -209,6 +210,9 @@ You can deposit crypto to this address.
           [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
         ])
     )
+    await ctx.replyWithPhoto({
+      source: Buffer.from((await QRCode.toDataURL(address)), 'base64'),
+    })
   } else {
     await ctx.answerCbQuery()
     ctx.editMessageText(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
