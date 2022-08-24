@@ -229,6 +229,7 @@ bot.command('depositqrcode', async (ctx) => {
     }
   }))
   if (res?.Item) {
+    const address = res.Item.address ?? undefined
     await ctx.replyWithPhoto({
       // ERROR: do not contain `data:image/png;base64,`
       source: Buffer.from((await QRCode.toDataURL(address)).slice(22), 'base64')
