@@ -3,6 +3,14 @@ const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-d
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {ethers} = require("ethers")
 
+//
+//     ####   ####  #    # ###### #  ####
+//    #    # #    # ##   # #      # #    #
+//    #      #    # # #  # #####  # #
+//    #      #    # #  # # #      # #  ###
+//    #    # #    # #   ## #      # #    #
+//     ####   ####  #    # #      #  ####
+//
 const ddbClient = new DynamoDBClient({
   region: 'ap-northeast-1',
 });
@@ -16,6 +24,38 @@ if (token === undefined) {
 
 const bot = new Telegraf(token)
 bot.use(session())
+
+//
+//    ####  #####   ##   #####  #####
+//   #        #    #  #  #    #   #
+//    ####    #   #    # #    #   #
+//        #   #   ###### #####    #
+//   #    #   #   #    # #   #    #
+//    ####    #   #    # #    #   #
+//
+bot.start(async (ctx) => {
+  await replyL1MenuContent(ctx)
+  ddbDocClient.send(new GetCommand({
+    TableName: 'wizardingpay',
+    Key: {
+      id: ctx.from.id,
+      sort: "telegram",
+    }
+  })).then((res) => {
+    if (!res.Item) {
+      const privateKey = ethers.utils.randomBytes(32);
+      ddbDocClient.send(new PutCommand({
+        TableName: 'wizardingpay',
+        Item: {
+          id: ctx.from.id,
+          sort: "telegram",
+          address: (new ethers.Wallet(privateKey)).address,
+          privateKey: ethers.BigNumber.from(privateKey)._hex
+        }
+      })).catch(e => console.log(e))
+    }
+  }).catch(e => console.log(e))
+})
 
 //
 //   #         #      #     #
@@ -51,29 +91,6 @@ Join our channel (https://t.me/wizardingpay) to receive news about the crypto ma
   )
 }
 
-bot.start(async (ctx) => {
-  await replyL1MenuContent(ctx)
-  ddbDocClient.send(new GetCommand({
-    TableName: 'wizardingpay',
-    Key: {
-      id: ctx.from.id,
-      sort: "telegram",
-    }
-  })).then((res) => {
-    if (!res.Item) {
-      const privateKey = ethers.utils.randomBytes(32);
-      ddbDocClient.send(new PutCommand({
-        TableName: 'wizardingpay',
-        Item: {
-          id: ctx.from.id,
-          sort: "telegram",
-          address: (new ethers.Wallet(privateKey)).address,
-          privateKey: ethers.BigNumber.from(privateKey)._hex
-        }
-      })).catch(e => console.log(e))
-    }
-  }).catch(e => console.log(e))
-})
 bot.command('menu', replyL1MenuContent)
 bot.action('backToL1MenuContent', editReplyL1MenuContent)
 
@@ -158,6 +175,10 @@ const editReplyL2ExchangeMenuContent = async (ctx) => {
   )
 }
 
+bot.command('exchange', replyL2ExchangeMenuContent)
+bot.action('exchange', editReplyL2ExchangeMenuContent)
+bot.action('backToL2ExchangeMenuContent', editReplyL2ExchangeMenuContent)
+
 //
 //   #        #####     ######
 //   #       #     #    #     # ###### #####   ####   ####  # #####
@@ -214,16 +235,28 @@ bot.action('withdraw', async (ctx) => {
   ]))
 })
 
+//
+//   #######           #     #
+//   #     # #    #    ##   ## ######  ####   ####    ##    ####  ######
+//   #     # ##   #    # # # # #      #      #       #  #  #    # #
+//   #     # # #  #    #  #  # #####   ####   ####  #    # #      #####
+//   #     # #  # #    #     # #           #      # ###### #  ### #
+//   #     # #   ##    #     # #      #    # #    # #    # #    # #
+//   ####### #    #    #     # ######  ####   ####  #    #  ####  ######
+//
 bot.on('message', async (ctx) => {
   const action = ctx.state?.intent
   ctx.reply(`${action}`)
 })
 
-bot.command('exchange', replyL2ExchangeMenuContent)
-bot.action('exchange', editReplyL2ExchangeMenuContent)
-bot.action('backToL2ExchangeMenuContent', editReplyL2ExchangeMenuContent)
-
-
+//
+//   #    #   ##   #    # #####  #      ###### #####
+//   #    #  #  #  ##   # #    # #      #      #    #
+//   ###### #    # # #  # #    # #      #####  #    #
+//   #    # ###### #  # # #    # #      #      #####
+//   #    # #    # #   ## #    # #      #      #   #
+//   #    # #    # #    # #####  ###### ###### #    #
+//
 exports.handler = async (event, context, callback) => {
   const tmp = JSON.parse(event.body);
   await bot.handleUpdate(tmp);
