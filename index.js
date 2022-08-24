@@ -224,7 +224,7 @@ bot.command('depositqrcode', async (ctx) => {
   const res = await ddbDocClient.send(new GetCommand({
     TableName: 'wizardingpay',
     Key: {
-      id: ctx.update.callback_query.from.id,
+      id: ctx.from.id,
       sort: "telegram",
     }
   }))
