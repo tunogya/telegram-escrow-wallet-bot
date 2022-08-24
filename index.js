@@ -247,6 +247,7 @@ bot.action('withdraw', async (ctx) => {
 bot.on('message', async (ctx) => {
   const action = ctx.session?.intent
   ctx.reply(`${action}`)
+  ctx.session.intent = undefined
 })
 
 //
