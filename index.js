@@ -5,12 +5,13 @@ const {ethers} = require("ethers")
 const QRCode = require('qrcode');
 
 //
-//     ####   ####  #    # ###### #  ####
-//    #    # #    # ##   # #      # #    #
-//    #      #    # # #  # #####  # #
-//    #      #    # #  # # #      # #  ###
-//    #    # #    # #   ## #      # #    #
-//     ####   ####  #    # #      #  ####
+//     #####
+//    #     #  ####  #    # ###### #  ####
+//    #       #    # ##   # #      # #    #
+//    #       #    # # #  # #####  # #
+//    #       #    # #  # # #      # #  ###
+//    #     # #    # #   ## #      # #    #
+//     #####   ####  #    # #      #  ####
 //
 const ddbClient = new DynamoDBClient({
   region: 'ap-northeast-1',
@@ -27,12 +28,13 @@ const bot = new Telegraf(token)
 bot.use(session())
 
 //
-//    ####  #####   ##   #####  #####
-//   #        #    #  #  #    #   #
-//    ####    #   #    # #    #   #
-//        #   #   ###### #####    #
-//   #    #   #   #    # #   #    #
-//    ####    #   #    # #    #   #
+//    #####
+//   #     # #####   ##   #####  #####
+//   #         #    #  #  #    #   #
+//    #####    #   #    # #    #   #
+//         #   #   ###### #####    #
+//   #     #   #   #    # #   #    #
+//    #####    #   #    # #    #   #
 //
 bot.start(async (ctx) => {
   await replyL1MenuContent(ctx)
@@ -200,17 +202,39 @@ bot.action('deposit', async (ctx) => {
   if (res?.Item) {
     const address = res.Item.address ?? undefined
     await ctx.answerCbQuery()
-    await ctx.replyWithPhoto({
-      source: Buffer.from((await QRCode.toDataURL(address)), 'base64'),
-      caption: `💰 Deposit
+    await ctx.editMessageText(`
+💰 Deposit
 
 Your address: ${address}
 
-You can deposit crypto to this address.`,
-    })
+You can deposit crypto to this address. Use /depositqrcode to get QR code.
+    `, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+        ]
+    ))
   } else {
     await ctx.answerCbQuery()
     ctx.editMessageText(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+    ]))
+  }
+})
+
+bot.command('depositqrcode', async (ctx) => {
+  const res = await ddbDocClient.send(new GetCommand({
+    TableName: 'wizardingpay',
+    Key: {
+      id: ctx.update.callback_query.from.id,
+      sort: "telegram",
+    }
+  }))
+  if (res?.Item) {
+    await ctx.replyWithPhoto({
+      // ERROR: do not contain `data:image/png;base64,`
+      source: Buffer.from((await QRCode.toDataURL(address)).slice(22), 'base64')
+    })
+  } else {
+    ctx.reply(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
       [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
     ]))
   }
@@ -226,7 +250,7 @@ You can deposit crypto to this address.`,
 //   #######  #####      ## ##  #   #   #    # #####  #    # #    # #    #
 //
 bot.action('withdraw', async (ctx) => {
-  // save an action to the ctx
+  // save intent to the ctx.session
   ctx.session = {intent: 'withdraw'}
   await ctx.answerCbQuery()
   ctx.editMessageText('Input your withdrawal address', Markup.inlineKeyboard([
@@ -252,12 +276,13 @@ bot.on('message', async (ctx) => {
 })
 
 //
-//   #    #   ##   #    # #####  #      ###### #####
-//   #    #  #  #  ##   # #    # #      #      #    #
-//   ###### #    # # #  # #    # #      #####  #    #
-//   #    # ###### #  # # #    # #      #      #####
-//   #    # #    # #   ## #    # #      #      #   #
-//   #    # #    # #    # #####  ###### ###### #    #
+//    #     #
+//    #     #   ##   #    # #####  #      ######
+//    #     #  #  #  ##   # #    # #      #
+//    ####### #    # # #  # #    # #      #####
+//    #     # ###### #  # # #    # #      #
+//    #     # #    # #   ## #    # #      #
+//    #     # #    # #    # #####  ###### ######
 //
 exports.handler = async (event, context, callback) => {
   const tmp = JSON.parse(event.body);
