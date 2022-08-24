@@ -200,20 +200,13 @@ bot.action('deposit', async (ctx) => {
   if (res?.Item) {
     const address = res.Item.address ?? undefined
     await ctx.answerCbQuery()
-    await ctx.editMessageMedia({
-      type: 'photo',
-      media: {
-        source: Buffer.from((await QRCode.toDataURL(address)), 'base64')
-      },
+    await ctx.replyWithPhoto({
+      source: Buffer.from((await QRCode.toDataURL(address)), 'base64'),
       caption: `💰 Deposit
 
 Your address: ${address}
 
-You can deposit crypto to this address.`
-      ,
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
-      ])
+You can deposit crypto to this address.`,
     })
   } else {
     await ctx.answerCbQuery()
@@ -252,10 +245,10 @@ bot.action('withdraw', async (ctx) => {
 //
 bot.on('message', async (ctx) => {
   const action = ctx.session?.intent
-  await ctx.reply(`${action}`)
   if (action) {
     ctx.session.action = undefined
   }
+  await ctx.reply(`${action}`)
 })
 
 //
