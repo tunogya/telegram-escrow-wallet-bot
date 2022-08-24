@@ -17,7 +17,15 @@ if (token === undefined) {
 const bot = new Telegraf(token)
 bot.use(session())
 
-// L1 Menu
+//
+//   #         #      #     #
+//   #        ##      ##   ## ###### #    # #    #
+//   #       # #      # # # # #      ##   # #    #
+//   #         #      #  #  # #####  # #  # #    #
+//   #         #      #     # #      #  # # #    #
+//   #         #      #     # #      #   ## #    #
+//   ####### #####    #     # ###### #    #  ####
+//
 const replyL1MenuContent = async (ctx) => {
   await ctx.reply(`
 Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
@@ -69,12 +77,20 @@ bot.start(async (ctx) => {
 bot.command('menu', replyL1MenuContent)
 bot.action('backToL1MenuContent', editReplyL1MenuContent)
 
-// L2 Wallet
+//
+//   #        #####     #     #
+//   #       #     #    #  #  #   ##   #      #      ###### #####
+//   #             #    #  #  #  #  #  #      #      #        #
+//   #        #####     #  #  # #    # #      #      #####    #
+//   #       #          #  #  # ###### #      #      #        #
+//   #       #          #  #  # #    # #      #      #        #
+//   ####### #######     ## ##  #    # ###### ###### ######   #
+//
 const replyL2WalletMenuContent = (ctx) => ctx.reply(`💰 My Wallet
 
 BTC: 0.00`, Markup.inlineKeyboard([
-      [Markup.button.callback('💰 Deposit', 'deposit'), Markup.button.callback('➕ Withdraw', 'withdraw')],
-      [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
+      [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+      [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
       [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
       [Markup.button.callback('« Back', 'backToL1MenuContent')]
     ])
@@ -86,8 +102,8 @@ const editReplyL2WalletMenuContent = async (ctx) => {
 💰 My Wallet
 
 BTC: 0.00`, Markup.inlineKeyboard([
-        [Markup.button.callback('💰 Deposit', 'deposit'), Markup.button.callback('➕ Withdraw', 'withdraw')],
-        [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('Cheques', 'cheques')],
+        [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+        [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
         [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
         [Markup.button.callback('« Back', 'backToL1MenuContent')]
       ])
@@ -98,7 +114,16 @@ bot.command('wallet', replyL2WalletMenuContent)
 bot.action('my_wallet', editReplyL2WalletMenuContent)
 bot.action('backToL2WalletMenuContent', editReplyL2WalletMenuContent)
 
-// L2 Cheques
+//
+//   #        #####      #####
+//   #       #     #    #     # #    # ######  ####  #    # ######  ####
+//   #             #    #       #    # #      #    # #    # #      #
+//   #        #####     #       ###### #####  #    # #    # #####   ####
+//   #       #          #       #    # #      #  # # #    # #           #
+//   #       #          #     # #    # #      #   #  #    # #      #    #
+//   ####### #######     #####  #    # ######  ### #  ####  ######  ####
+//
+//
 const replyL2ChequesMenuContent = (ctx) => ctx.reply(`Sorry, all bot operations are unavailable for your region.`)
 
 const editReplyL2ChequesMenuContent = async (ctx) => {
@@ -109,7 +134,15 @@ bot.command('cheques', replyL2ChequesMenuContent)
 bot.action('cheques', editReplyL2ChequesMenuContent)
 bot.action('backToL2ChequesMenuContent', editReplyL2ChequesMenuContent)
 
-// L2 Exchange
+//
+//   #        #####     #######
+//   #       #     #    #       #    #  ####  #    #   ##   #    #  ####  ######
+//   #             #    #        #  #  #    # #    #  #  #  ##   # #    # #
+//   #        #####     #####     ##   #      ###### #    # # #  # #      #####
+//   #       #          #         ##   #      #    # ###### #  # # #  ### #
+//   #       #          #        #  #  #    # #    # #    # #   ## #    # #
+//   ####### #######    ####### #    #  ####  #    # #    # #    #  ####  ######
+//
 const replyL2ExchangeMenuContent = async (ctx) => {
   await ctx.reply(`Exchange`, Markup.inlineKeyboard([
         [Markup.button.callback('« Back', 'backToL1MenuContent')]
@@ -125,7 +158,15 @@ const editReplyL2ExchangeMenuContent = async (ctx) => {
   )
 }
 
-// L3 Deposit
+//
+//   #        #####     ######
+//   #       #     #    #     # ###### #####   ####   ####  # #####
+//   #             #    #     # #      #    # #    # #      #   #
+//   #        #####     #     # #####  #    # #    #  ####  #   #
+//   #             #    #     # #      #####  #    #      # #   #
+//   #       #     #    #     # #      #      #    # #    # #   #
+//   #######  #####     ######  ###### #       ####   ####  #   #
+//
 bot.action('deposit', async (ctx) => {
   const res = await ddbDocClient.send(new GetCommand({
     TableName: 'wizardingpay',
@@ -155,7 +196,15 @@ You can deposit crypto to this address.
   }
 })
 
-// L3 Withdraw
+//
+//   #        #####     #     #
+//   #       #     #    #  #  # # ##### #    # #####  #####    ##   #    #
+//   #             #    #  #  # #   #   #    # #    # #    #  #  #  #    #
+//   #        #####     #  #  # #   #   ###### #    # #    # #    # #    #
+//   #             #    #  #  # #   #   #    # #    # #####  ###### # ## #
+//   #       #     #    #  #  # #   #   #    # #    # #   #  #    # ##  ##
+//   #######  #####      ## ##  #   #   #    # #####  #    # #    # #    #
+//
 bot.action('withdraw', async (ctx) => {
   // save an action to the ctx
   ctx.session = { intent: 'withdraw' }
