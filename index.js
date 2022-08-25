@@ -230,7 +230,7 @@ bot.command('depositqrcode', async (ctx) => {
   if (res?.Item) {
     const address = res.Item.address ?? undefined
     await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
-      caption: `Your deposit address: ${address}`,
+      caption: `Your WizardingPay deposit address: ${address}`,
     })
   } else {
     ctx.reply(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
