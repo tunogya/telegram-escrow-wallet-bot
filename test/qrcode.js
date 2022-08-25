@@ -1,12 +1,30 @@
 const QRCode = require('qrcode');
 
-const main = async () => {
-  const options = {
-    type: 'image/png',
-    margin: 4,
-    version: 3,
+exports.handler = async (event) => {
+  const text = event?.queryStringParameters?.text || 'Hello World!';
+  const option = {
+    version: event?.queryStringParameters?.version || 4,
+    errorCorrectionLevel: event?.queryStringParameters?.errorCorrectionLevel || 'M',
+    maskPattern: event?.queryStringParameters?.maskPattern || 3,
+    margin: event?.queryStringParameters?.margin || 4,
+    scale: event?.queryStringParameters?.scale || 4,
+    small: event?.queryStringParameters?.small || false,
+    width: event?.queryStringParameters?.width || 300
   }
-  const buffer = await QRCode.toBuffer('0x3B00ce7E2d0E0E905990f9B09A1F515C71a91C10', options)
-  console.log(buffer.toString('base64'));
-}
-main()
+  try {
+    const buffer = await QRCode.toBuffer(text, option)
+    return {
+      statusCode: 200,
+      headers: {
+        "content-type": 'image/png',
+      },
+      body: buffer.toString('base64'),
+      isBase64Encoded: true
+    };
+  } catch (e) {
+    return {
+      statusCode: 500,
+      body: e.message,
+    }
+  }
+};
