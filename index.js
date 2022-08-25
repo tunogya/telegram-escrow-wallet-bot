@@ -2,7 +2,6 @@ const {Telegraf, Markup, session} = require('telegraf')
 const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {ethers} = require("ethers")
-const QRCode = require('qrcode');
 
 //
 //    #####
@@ -230,8 +229,8 @@ bot.command('depositqrcode', async (ctx) => {
   }))
   if (res?.Item) {
     const address = res.Item.address ?? undefined
-    await ctx.replyWithPhoto({
-      source: Buffer.from((await QRCode.toBuffer(address)), 'base64')
+    await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
+      caption: `Your deposit address: ${address}`,
     })
   } else {
     ctx.reply(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
