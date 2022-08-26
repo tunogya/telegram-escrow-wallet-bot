@@ -1,7 +1,4 @@
 const {Telegraf, Markup, session} = require('telegraf')
-const {PutCommand, DynamoDBDocumentClient, GetCommand} = require('@aws-sdk/lib-dynamodb');
-const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
-const {ethers} = require("ethers")
 
 //
 //    #####
@@ -37,26 +34,6 @@ bot.use(session())
 //
 bot.start(async (ctx) => {
   await replyL1MenuContent(ctx)
-  ddbDocClient.send(new GetCommand({
-    TableName: 'wizardingpay',
-    Key: {
-      id: ctx.from.id,
-      sort: "telegram",
-    }
-  })).then((res) => {
-    if (!res.Item) {
-      const privateKey = ethers.utils.randomBytes(32);
-      ddbDocClient.send(new PutCommand({
-        TableName: 'wizardingpay',
-        Item: {
-          id: ctx.from.id,
-          sort: "telegram",
-          address: (new ethers.Wallet(privateKey)).address,
-          privateKey: ethers.BigNumber.from(privateKey)._hex
-        }
-      })).catch(e => console.log(e))
-    }
-  }).catch(e => console.log(e))
 })
 
 //
@@ -200,37 +177,23 @@ bot.action('backToL2ExchangeMenuContent', editReplyL2ExchangeMenuContent)
 //   #######  #####     ######  ###### #       ####   ####  #   #
 //
 bot.action('deposit', async (ctx) => {
-  const res = await ddbDocClient.send(new GetCommand({
-    TableName: 'wizardingpay',
-    Key: {
-      id: ctx.update.callback_query.from.id,
-      sort: "telegram",
-    }
-  }))
-  if (res?.Item) {
-    const address = res.Item.address ?? undefined
-    await ctx.answerCbQuery()
-    await ctx.editMessageText(`
+  const address = "test"
+  await ctx.answerCbQuery()
+  await ctx.editMessageText(`
 *💰 Deposit*
 
 Your address: ${address}
 
 You can deposit crypto to this address. Use /depositqrcode to get QR code.
     `,
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-                [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
-              ]
-          )
-        }
-    )
-  } else {
-    await ctx.answerCbQuery()
-    ctx.editMessageText(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
-      [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
-    ]))
-  }
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+              [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+            ]
+        )
+      }
+  )
 })
 
 bot.command('depositqrcode', async (ctx) => {
