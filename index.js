@@ -105,27 +105,36 @@ bot.action('backToL1MenuContent', editReplyL1MenuContent)
 //   #       #          #  #  # #    # #      #      #        #
 //   ####### #######     ## ##  #    # ###### ###### ######   #
 //
-const replyL2WalletMenuContent = (ctx) => ctx.reply(`💰 My Wallet
+const replyL2WalletMenuContent = (ctx) => ctx.reply(`
+*💰 My Wallet*
 
-BTC: 0.00`, Markup.inlineKeyboard([
-      [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-      [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
-      [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
-      [Markup.button.callback('« Back', 'backToL1MenuContent')]
-    ])
-)
-
-const editReplyL2WalletMenuContent = async (ctx) => {
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`
-💰 My Wallet
-
-BTC: 0.00`, Markup.inlineKeyboard([
+BTC: 0.00`,
+    {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
         [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
         [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
         [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
         [Markup.button.callback('« Back', 'backToL1MenuContent')]
       ])
+    }
+)
+
+const editReplyL2WalletMenuContent = async (ctx) => {
+  await ctx.answerCbQuery()
+  await ctx.editMessageText(`
+*💰 My Wallet*
+
+BTC: 0.00`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+          [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
+          [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
+          [Markup.button.callback('« Back', 'backToL1MenuContent')]
+        ])
+      }
   )
 }
 
@@ -202,15 +211,20 @@ bot.action('deposit', async (ctx) => {
     const address = res.Item.address ?? undefined
     await ctx.answerCbQuery()
     await ctx.editMessageText(`
-💰 Deposit
+*💰 Deposit*
 
 Your address: ${address}
 
 You can deposit crypto to this address. Use /depositqrcode to get QR code.
-    `, Markup.inlineKeyboard([
-          [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
-        ]
-    ))
+    `,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+                [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
+              ]
+          )
+        }
+    )
   } else {
     await ctx.answerCbQuery()
     ctx.editMessageText(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
@@ -230,7 +244,8 @@ bot.command('depositqrcode', async (ctx) => {
   if (res?.Item) {
     const address = res.Item.address ?? undefined
     await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
-      caption: `Your WizardingPay deposit address: ${address}`,
+      caption: `*Your WizardingPay deposit address*: ${address}`,
+      parse_mode: 'Markdown'
     })
   } else {
     ctx.reply(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
