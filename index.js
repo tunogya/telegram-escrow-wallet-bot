@@ -33,13 +33,10 @@ bot.start(async (ctx) => {
     axios({
       method: 'POST',
       url: 'https://api.wizardingpay.com/v1/users/',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       data: JSON.stringify({
-        data: {
-          third_party_account: String(ctx.from.id),
-          third_party_category: 'telegram'
+        "data": {
+          "third_party_account": String(ctx.from.id),
+          "third_party_category": 'telegram'
         }
       })
     })
