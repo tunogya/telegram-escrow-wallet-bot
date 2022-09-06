@@ -1,4 +1,5 @@
 const {Telegraf, Markup, session} = require('telegraf')
+const axios = require('axios')
 
 //
 //    #####
@@ -9,11 +10,6 @@ const {Telegraf, Markup, session} = require('telegraf')
 //   #     # #    # #   ## #      # #    #
 //    #####   ####  #    # #      #  ####
 //
-const ddbClient = new DynamoDBClient({
-  region: 'ap-northeast-1',
-});
-
-const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -33,6 +29,23 @@ bot.use(session())
 //    #####    #   #    # #    #   #
 //
 bot.start(async (ctx) => {
+  try {
+    axios({
+      method: 'POST',
+      url: 'https://api.wizardingpay.com/v1/users/',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify({
+        data: {
+          third_party_account: String(ctx.from.id),
+          third_party_category: 'telegram'
+        }
+      })
+    })
+  } catch (e) {
+    console.log(e)
+  }
   await replyL1MenuContent(ctx)
 })
 
