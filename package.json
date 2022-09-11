@@ -7,7 +7,11 @@
   "license": "GPL3",
   "dependencies": {
     "axios": "^0.27.2",
+    "ethers": "^5.7.0",
     "qrcode": "^1.5.1",
     "telegraf": "^4.8.6"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }

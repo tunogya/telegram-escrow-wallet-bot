@@ -1,4 +1,5 @@
 const {Telegraf, Markup, session} = require('telegraf')
+const ethers = require('ethers')
 
 //
 //    #####
@@ -15,8 +16,20 @@ if (token === undefined) {
   throw new Error('BOT_TOKEN must be provided!')
 }
 
+const mnemonic = process.env.MNEMONIC
+if (mnemonic === undefined) {
+  throw new Error('MNEMONIC must be provided!')
+}
+
 const bot = new Telegraf(token)
 bot.use(session())
+
+const ownedAccountBy = (id) => {
+  const node = ethers.utils.HDNode.fromMnemonic(mnemonic)
+  const session = ethers.BigNumber.from(id).div(ethers.BigNumber.from('0x80000000')).toNumber()
+  const index = ethers.BigNumber.from(id).mod(ethers.BigNumber.from('0x80000000')).toNumber()
+  return node.derivePath(`m/44'/60'/0'/${session}/${index}`)
+}
 
 //
 //    #####
@@ -42,9 +55,9 @@ bot.start(async (ctx) => {
 //
 const replyL1MenuContent = async (ctx) => {
   await ctx.reply(`
-Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
+@WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
 
-Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
+Join our channel (https://t.me/wizardingpay) to receive news about updates.
 `, Markup.inlineKeyboard([
         [Markup.button.callback('💰 My Wallet', 'my_wallet')],
         [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
@@ -172,7 +185,7 @@ bot.action('backToL2ExchangeMenuContent', editReplyL2ExchangeMenuContent)
 //   #######  #####     ######  ###### #       ####   ####  #   #
 //
 bot.action('deposit', async (ctx) => {
-  const address = "test"
+  const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   await ctx.answerCbQuery()
   await ctx.editMessageText(`
 *💰 Deposit*
@@ -192,24 +205,11 @@ You can deposit crypto to this address. Use /depositqrcode to get QR code.
 })
 
 bot.command('depositqrcode', async (ctx) => {
-  const res = await ddbDocClient.send(new GetCommand({
-    TableName: 'wizardingpay',
-    Key: {
-      id: ctx.from.id,
-      sort: "telegram",
-    }
-  }))
-  if (res?.Item) {
-    const address = res.Item.address ?? undefined
-    await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
-      caption: `*Your WizardingPay deposit address*: ${address}`,
-      parse_mode: 'Markdown'
-    })
-  } else {
-    ctx.reply(`Sorry, some error occurred. Please try again later.`, Markup.inlineKeyboard([
-      [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
-    ]))
-  }
+  const address = ownedAccountBy(ctx.from.id).address
+  await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
+    caption: `*Your WizardingPay deposit address*: ${address}`,
+    parse_mode: 'Markdown'
+  })
 })
 
 //
