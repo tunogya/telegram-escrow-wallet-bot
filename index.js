@@ -1,5 +1,4 @@
 const {Telegraf, Markup, session} = require('telegraf')
-const axios = require('axios')
 
 //
 //    #####
@@ -29,20 +28,6 @@ bot.use(session())
 //    #####    #   #    # #    #   #
 //
 bot.start(async (ctx) => {
-  try {
-    axios({
-      method: 'POST',
-      url: 'https://api.wizardingpay.com/v1/users/',
-      data: JSON.stringify({
-        "data": {
-          "third_party_account": String(ctx.from.id),
-          "third_party_category": 'telegram'
-        }
-      })
-    })
-  } catch (e) {
-    console.log(e)
-  }
   await replyL1MenuContent(ctx)
 })
 
