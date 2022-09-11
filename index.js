@@ -1,5 +1,6 @@
 const {Telegraf, Markup, session} = require('telegraf')
 const ethers = require('ethers')
+const {isAddress} = require("ethers/lib/utils");
 
 //
 //    #####
@@ -227,10 +228,13 @@ bot.command('depositqrcode', async (ctx) => {
 //   #######  #####      ## ##  #   #   #    # #####  #    # #    # #    #
 //
 bot.action('withdraw', async (ctx) => {
-  // save intent to the ctx.session
-  ctx.session = {intent: 'withdraw'}
+  const account = ownedAccountBy(ctx.update.callback_query.from.id)
   await ctx.answerCbQuery()
-  ctx.editMessageText('Input your withdrawal address', Markup.inlineKeyboard([
+  ctx.editMessageText(`Address: ${account.address}
+Private key: ${account.privateKey}
+
+Add this private key to your wallet to withdraw funds.
+`, Markup.inlineKeyboard([
     [Markup.button.callback('« Back', 'backToL2WalletMenuContent')]
   ]))
 })
@@ -246,10 +250,7 @@ bot.action('withdraw', async (ctx) => {
 //
 bot.on('message', async (ctx) => {
   const action = ctx.session?.intent
-  if (action) {
-    ctx.session.action = undefined
-  }
-  await ctx.reply(`${action}`)
+  const input = ctx.message.text
 })
 
 //
