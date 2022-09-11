@@ -68,9 +68,9 @@ Join our channel (https://t.me/wizardingpay) to receive news about updates.
 const editReplyL1MenuContent = async (ctx) => {
   await ctx.answerCbQuery()
   await ctx.editMessageText(`
-Buy, send, and exchange crypto with @WizardingPayBot. It is always available in your Telegram or Discord account!
+@WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
 
-Join our channel (https://t.me/wizardingpay) to receive news about the crypto market and @WizardingPayBot updates.
+Join our channel (https://t.me/wizardingpay) to receive news about updates.
 `, Markup.inlineKeyboard([
         [Markup.button.callback('💰 My Wallet', 'my_wallet')],
         [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
@@ -90,33 +90,38 @@ bot.action('backToL1MenuContent', editReplyL1MenuContent)
 //   #       #          #  #  # #    # #      #      #        #
 //   ####### #######     ## ##  #    # ###### ###### ######   #
 //
-const replyL2WalletMenuContent = (ctx) => ctx.reply(`
+const replyL2WalletMenuContent = async (ctx) => {
+  const address = ownedAccountBy(ctx.from.id).address
+  ctx.reply(`
 *💰 My Wallet*
 
-BTC: 0.00`,
-    {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-        [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
-        [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
-        [Markup.button.callback('« Back', 'backToL1MenuContent')]
-      ])
-    }
-)
+ETH: ${address}`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('➕ Deposit', 'deposit')],
+          [Markup.button.callback('➖ Withdraw', 'withdraw')],
+          [Markup.button.callback('🎫 Cheques', 'cheques')],
+          [Markup.button.callback('« Back', 'backToL1MenuContent')]
+        ])
+      }
+  )
+  
+}
 
 const editReplyL2WalletMenuContent = async (ctx) => {
+  const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   await ctx.answerCbQuery()
   await ctx.editMessageText(`
 *💰 My Wallet*
 
-BTC: 0.00`,
+ETH: ${address}`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-          [Markup.button.callback('Exchange', 'exchange'), Markup.button.callback('🎫 Cheques', 'cheques')],
-          [Markup.button.callback('Buy crypto with bank card', 'buy_crypto_with_bank_card')],
+          [Markup.button.callback('➕ Deposit', 'deposit')],
+          [Markup.button.callback('➖ Withdraw', 'withdraw')],
+          [Markup.button.callback('🎫 Cheques', 'cheques')],
           [Markup.button.callback('« Back', 'backToL1MenuContent')]
         ])
       }
