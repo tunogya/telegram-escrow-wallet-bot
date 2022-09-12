@@ -150,18 +150,44 @@ bot.command('depositqrcode', async (ctx) => {
   })
 })
 
-bot.command('withdraw', async (ctx) => {
-  // query 2FA secret
-  // query table 'wizardingpay' for user's 2FA secret
-  // if not found, ask user to set 2FA
-  // if found, ask user to input 2FA code
+bot.action('withdraw', async (ctx) => {
   const queryUserRes = await ddbDocClient.send(new QueryCommand({
     ExpressionAttributeNames: {'#u': 'user_id', '#c': 'category'},
     TableName: 'wizardingpay',
     IndexName: 'user-index',
     KeyConditionExpression: '#u = :u and #c = :c',
     ExpressionAttributeValues: {
-      ':u': ctx.from.id,
+      ':u': ctx.update.callback_query.from.id,
+      ':c': 'telegram'
+    },
+  })).catch(() => {
+  
+  });
+  if (queryUserRes.Count === 0) {
+    const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.from.username});
+    ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
+    await ctx.replyWithPhoto(newSecret.qr, {
+      caption: `You have not set up 2FA. Please scan the QR code to set up 2FA.
+      
+*Your WizardingPay 2FA secret*: ${newSecret.secret}.
+Set to your Google Authenticator and send me current code to submit config.`,
+    })
+  }
+  const secret = queryUserRes.Items[0].secret
+  ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
+  await ctx.reply(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+    [Markup.button.callback('« Back', 'menu')]
+  ]))
+})
+
+bot.command('withdraw', async (ctx) => {
+  const queryUserRes = await ddbDocClient.send(new QueryCommand({
+    ExpressionAttributeNames: {'#u': 'user_id', '#c': 'category'},
+    TableName: 'wizardingpay',
+    IndexName: 'user-index',
+    KeyConditionExpression: '#u = :u and #c = :c',
+    ExpressionAttributeValues: {
+      ':u': ctx.update.callback_query.from.id,
       ':c': 'telegram'
     },
   })).catch(() => {
