@@ -164,7 +164,10 @@ bot.action('withdraw', async (ctx) => {
   
   });
   if (queryUserRes.Count === 0) {
-    const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.update.callback_query.from.username});
+    const newSecret = twofactor.generateSecret({
+      name: "WizardingPay",
+      account: 'telegram:' + ctx.update.callback_query.from.username
+    });
     ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
     await ctx.answerCbQuery()
     await ctx.replyWithPhoto(newSecret.qr, {
@@ -172,6 +175,10 @@ bot.action('withdraw', async (ctx) => {
       
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
 Set to your Google Authenticator and send me current code to submit config.`,
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('« Back', 'my_wallet')]
+      ])
     })
     return
   }
@@ -179,7 +186,7 @@ Set to your Google Authenticator and send me current code to submit config.`,
   ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
   await ctx.answerCbQuery()
   await ctx.reply(`Please enter your 2FA code:`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back', 'menu')]
+    [Markup.button.callback('« Back', 'my_wallet')]
   ]))
 })
 
@@ -204,6 +211,10 @@ bot.command('withdraw', async (ctx) => {
       
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
 Set to your Google Authenticator and send me current code to submit config.`,
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('« Back', 'my_wallet')]
+      ])
     })
     return
   }
@@ -230,7 +241,9 @@ bot.on('message', async (ctx) => {
           secret: secret
         }
       }))
-      await ctx.reply(`2FA is set up successfully.`)
+      await ctx.reply(`2FA is set up successfully.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back', 'my_wallet')]
+      ]))
     }
   }
   if (action === 'verify-2fa-withdraw') {
@@ -241,7 +254,9 @@ bot.on('message', async (ctx) => {
       await ctx.reply(`Address: ${account.address}
 Private key: ${account.privateKey}
 
-Delete this message immediately after you have copied the private key.`)
+Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back', 'my_wallet')]
+      ]))
     }
   }
 })
