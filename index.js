@@ -170,13 +170,13 @@ bot.action('withdraw', async (ctx) => {
     });
     ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
     await ctx.answerCbQuery()
-    await ctx.replyWithPhoto(newSecret.qr, {
-      caption: `You have not set up 2FA. Please scan the QR code to set up 2FA.
-      
+    await ctx.editMessageText(`You have not set up 2FA. Please scan the QR code to set up 2FA.
+    
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
-Set to your Google Authenticator and send me current code to submit config.`,
+Set to your Google Authenticator and send me current code to submit config.`, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
+        [Markup.button.callback('Show QR code', '2fa-qr-code')],
         [Markup.button.callback('« Back', 'my_wallet')]
       ])
     })
