@@ -164,7 +164,7 @@ bot.action('withdraw', async (ctx) => {
   
   });
   if (queryUserRes.Count === 0) {
-    const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.from.username});
+    const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.update.callback_query.from.username});
     ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
     await ctx.answerCbQuery()
     await ctx.replyWithPhoto(newSecret.qr, {
@@ -190,7 +190,7 @@ bot.command('withdraw', async (ctx) => {
     IndexName: 'user-index',
     KeyConditionExpression: '#u = :u and #c = :c',
     ExpressionAttributeValues: {
-      ':u': ctx.update.callback_query.from.id,
+      ':u': ctx.from.id,
       ':c': 'telegram'
     },
   })).catch(() => {
