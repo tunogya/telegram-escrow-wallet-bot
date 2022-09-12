@@ -166,15 +166,18 @@ bot.action('withdraw', async (ctx) => {
   if (queryUserRes.Count === 0) {
     const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.from.username});
     ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
+    await ctx.answerCbQuery()
     await ctx.replyWithPhoto(newSecret.qr, {
       caption: `You have not set up 2FA. Please scan the QR code to set up 2FA.
       
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
 Set to your Google Authenticator and send me current code to submit config.`,
     })
+    return
   }
   const secret = queryUserRes.Items[0].secret
   ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
+  await ctx.answerCbQuery()
   await ctx.reply(`Please enter your 2FA code:`, Markup.inlineKeyboard([
     [Markup.button.callback('« Back', 'menu')]
   ]))
@@ -202,6 +205,7 @@ bot.command('withdraw', async (ctx) => {
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
 Set to your Google Authenticator and send me current code to submit config.`,
     })
+    return
   }
   const secret = queryUserRes.Items[0].secret
   ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
