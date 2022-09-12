@@ -185,7 +185,7 @@ Set to your Google Authenticator and send me current code to submit config.`,
   const secret = queryUserRes.Items[0].secret
   ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
   await ctx.answerCbQuery()
-  await ctx.reply(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+  await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
     [Markup.button.callback('« Back', 'my_wallet')]
   ]))
 })
