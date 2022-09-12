@@ -1,5 +1,9 @@
 const {Telegraf, Markup, session} = require('telegraf')
+const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand, ScanCommand} = require('@aws-sdk/lib-dynamodb');
+const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
+const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers')
+const twofactor = require("node-2fa");
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -13,6 +17,17 @@ if (mnemonic === undefined) {
 
 const bot = new Telegraf(token)
 bot.use(session())
+
+const ddbClient = new DynamoDBClient({
+  region: 'ap-northeast-1',
+});
+
+const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
+
+const uid = new Snowflake({
+  custom_epoch: 1656604800000,
+  instance_id: 1,
+})
 
 const ownedAccountBy = (id) => {
   const node = ethers.utils.HDNode.fromMnemonic(mnemonic)
@@ -87,7 +102,7 @@ ETH: ${address}`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'choice_withdraw_network')],
+          [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
           [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
           [Markup.button.callback('« Back', 'menu')]
         ])
@@ -135,66 +150,69 @@ bot.command('depositqrcode', async (ctx) => {
   })
 })
 
-bot.action('choice_withdraw_network', async (ctx) => {
-  await ctx.answerCbQuery()
-  ctx.editMessageText(`Choose network to withdraw from`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('ETH', 'withdraw_network_eth'), Markup.button.callback('BSC', 'withdraw_network_bsc')],
-        [Markup.button.callback('Matic', 'withdraw_network_matic'), Markup.button.callback('Arbitrum', 'withdraw_network_arbitrum')],
-        [Markup.button.callback('« Back', 'my_wallet')]
-      ]))
-})
-
-// RegExp 'withdraw_network_(eth|bsc|matic|arbitrum)'
-bot.action(/withdraw_network_(eth|bsc|matic|arbitrum)/, async (ctx) => {
-  const network = ctx.match[1]
-  ctx.session = {...ctx.session, network: network}
-  await ctx.answerCbQuery()
-  ctx.editMessageText('Chose currency to withdraw', Markup.inlineKeyboard([
-    [Markup.button.callback('ETH', 'withdraw_token_eth'), Markup.button.callback('USDT', 'withdraw_token_usdt')],
-    [Markup.button.callback('« Back', 'choice_withdraw_network')]
-  ]))
-})
-
-// RegExp 'withdraw_token_(eth|usdt)'
-bot.action(/withdraw_token_(eth|usdt)/, async (ctx) => {
-  const token = ctx.match[1]
-  ctx.session = {...ctx.session, token: token}
-  await ctx.answerCbQuery()
-  ctx.editMessageText(`Enter amount to withdraw`, Markup.inlineKeyboard([
-    [Markup.button.callback('1', 'withdraw_amount_1'), Markup.button.callback('10', 'withdraw_amount_10')],
-    [Markup.button.callback('100', 'withdraw_amount_100'), Markup.button.callback('1K', 'withdraw_amount_1000')],
-    [Markup.button.callback('10K', 'withdraw_amount_10000'), Markup.button.callback('100K', 'withdraw_amount_100000')],
-    [Markup.button.callback('1M', 'withdraw_amount_1000000'), Markup.button.callback('10M', 'withdraw_amount_10000000')],
-    [Markup.button.callback('« Back', 'choice_withdraw_network')]
-  ]))
-})
-
-bot.action(/withdraw_amount_(\d+)/, async (ctx) => {
-  const amount = ctx.match[1]
-  ctx.session = {...ctx.session, amount: amount, intent: 'withdraw_address'}
-  await ctx.answerCbQuery()
-  ctx.editMessageText(`Enter address to withdraw to`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back', 'choice_withdraw_network')]
-  ]))
-})
-
-bot.action('withdraw_confirm', async (ctx) => {
-  const {network, token, amount, address} = ctx.session
-  await ctx.answerCbQuery()
-  ctx.editMessageText(`Withdraw pending...`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back', 'choice_withdraw_network')],
+bot.command('withdraw', async (ctx) => {
+  // query 2FA secret
+  // query table 'wizardingpay' for user's 2FA secret
+  // if not found, ask user to set 2FA
+  // if found, ask user to input 2FA code
+  const queryUserRes = await ddbDocClient.send(new QueryCommand({
+    ExpressionAttributeNames: {'#u': 'user_id', '#c': 'category'},
+    TableName: 'wizardingpay',
+    IndexName: 'user-index',
+    KeyConditionExpression: '#u = :u and #c = :c',
+    ExpressionAttributeValues: {
+      ':u': ctx.from.id,
+      ':c': 'telegram'
+    },
+  })).catch(() => {
+  
+  });
+  if (queryUserRes.Count === 0) {
+    const newSecret = twofactor.generateSecret({name: "WizardingPay", account: 'telegram:' + ctx.from.username});
+    ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
+    await ctx.replyWithPhoto(newSecret.qr, {
+      caption: `You have not set up 2FA. Please scan the QR code to set up 2FA.
+      
+*Your WizardingPay 2FA secret*: ${newSecret.secret}.
+Set to your Google Authenticator and send me current code to submit config.`,
+    })
+  }
+  const secret = queryUserRes.Items[0].secret
+  ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
+  await ctx.reply(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+    [Markup.button.callback('« Back', 'menu')]
   ]))
 })
 
 bot.on('message', async (ctx) => {
   const action = ctx.session?.intent
   const input = ctx.message.text
-  if (action === 'withdraw_address') {
-    ctx.session = {...ctx.session, address: input, intent: 'withdraw_confirm'}
-    ctx.reply(`Confirm withdraw of ${ctx.session.amount} ${ctx.session.token} to ${input}, network ${ctx.session.network}`, Markup.inlineKeyboard([
-      [Markup.button.callback('Confirm', 'withdraw_confirm'), Markup.button.callback('« Back', 'choice_withdraw_network')]
-    ]))
+  if (action === 'first-2fa') {
+    const secret = ctx.session.newSecret.secret
+    const verified = twofactor.verifyToken(secret, input)
+    if (verified.delta === 0) {
+      await ddbDocClient.send(new PutCommand({
+        TableName: 'wizardingpay',
+        Item: {
+          id: uid.getUniqueID(),
+          user_id: ctx.from.id,
+          category: 'telegram',
+          secret: secret
+        }
+      }))
+      await ctx.reply(`2FA is set up successfully.`)
+    }
+  }
+  if (action === 'verify-2fa-withdraw') {
+    const secret = ctx.session.secret
+    const verified = twofactor.verifyToken(secret, input)
+    const account = ownedAccountBy(ctx.from.id)
+    if (verified.delta === 0) {
+      await ctx.reply(`Address: ${account.address}
+Private key: ${account.privateKey}
+
+Delete this message immediately after you have copied the private key.`)
+    }
   }
 })
 
