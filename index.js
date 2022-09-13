@@ -1,5 +1,5 @@
 const {Telegraf, Markup, session} = require('telegraf')
-const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand, ScanCommand} = require('@aws-sdk/lib-dynamodb');
+const {PutCommand, DynamoDBDocumentClient, QueryCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers')
@@ -115,7 +115,7 @@ bot.action('deposit', async (ctx) => {
 
 Your address: ${address}
 
-You can deposit crypto to this address. Use /depositqrcode to get QR code.
+You can deposit crypto to this address.
     `,
       {
         parse_mode: 'Markdown',
@@ -133,10 +133,7 @@ bot.action('deposit_qrcode', async (ctx) => {
   await ctx.answerCbQuery()
   await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
     caption: `*Your WizardingPay deposit address*: ${address}`,
-    parse_mode: 'Markdown',
-    ...Markup.inlineKeyboard([
-      [Markup.button.callback('« Back', 'my_wallet')]
-    ])
+    parse_mode: 'Markdown'
   })
 })
 
