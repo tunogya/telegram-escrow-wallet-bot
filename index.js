@@ -132,7 +132,7 @@ bot.action('deposit_qrcode', async (ctx) => {
   const address = ownedAccountBy(ctx.from.id).address
   await ctx.answerCbQuery()
   await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
-    caption: `*Your WizardingPay deposit address*: ${address}`,
+    caption: `*${ctx.update.callback_query.from.username ?? 'Your'} WizardingPay deposit address*: ${address}`,
     parse_mode: 'Markdown'
   })
 })
