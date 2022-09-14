@@ -1,8 +1,8 @@
-const {Telegraf, Markup, session} = require('telegraf')
+const {Telegraf, Markup, session} = require('telegraf');
 const {PutCommand, DynamoDBDocumentClient, QueryCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
-const ethers = require('ethers')
+const ethers = require('ethers');
 const twofactor = require("node-2fa");
 
 const token = process.env.BOT_TOKEN
@@ -84,27 +84,12 @@ bot.action('cheques', async (ctx) => {
   await ctx.editMessageText(`Sorry, all bot operations are unavailable for your region.`)
 })
 
-// 网络，筛选活跃的网络
-// 代币，筛选活跃的代币
-// 金额，输入自定义金额，或者预定义按钮
-// 对象，输入聊天对象
 bot.action('prize', async (ctx) => {
-  // 加载活跃的网络
-  
-  // 返回活跃网络的内联按钮
-  
-})
-
-bot.action(/prize_network_(eth|bsc)/, async (ctx) => {
-  // 确认网络信息到 session
-  // 根据网络信息加载代币数据
-  // 选择代币
-})
-
-bot.action(/prize_token_(eth|bsc)/, async (ctx) => {
-  // 确认代币信息到 session
-  // 输入金额
-  
+  ctx.editMessageText('Welcome to use Wizarding Pay Prize!', Markup.inlineKeyboard([
+    [Markup.button.callback('Send Prize', 'send_prize')],
+    [Markup.button.callback('History', 'prize_history')],
+    [Markup.button.callback('« Back', 'my_wallet')]
+  ]))
 })
 
 bot.action('deposit', async (ctx) => {
@@ -213,6 +198,10 @@ Delete this message immediately after you have copied the private key.`, Markup.
   }
 })
 
+bot.catch((error) => {
+  console.log(error)
+})
+
 exports.handler = async (event, context, callback) => {
   const tmp = JSON.parse(event.body);
   await bot.handleUpdate(tmp);
@@ -221,3 +210,9 @@ exports.handler = async (event, context, callback) => {
     body: '',
   });
 };
+
+bot.launch().then(() => console.log('Bot launched...'))
+
+// Enable graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'))
+process.once('SIGTERM', () => bot.stop('SIGTERM'))
