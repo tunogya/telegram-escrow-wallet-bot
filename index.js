@@ -74,7 +74,7 @@ ETH: ${address}`,
         ...Markup.inlineKeyboard([
           [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
           [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
-          [Markup.button.callback('« Back', 'menu')]
+          [Markup.button.callback('« Back to menu', 'menu')]
         ])
       }
   )
@@ -88,7 +88,7 @@ bot.action('prize', async (ctx) => {
   ctx.editMessageText('Welcome to use Wizarding Pay Prize!', Markup.inlineKeyboard([
     [Markup.button.callback('Send Prize', 'send_prize')],
     [Markup.button.callback('History', 'prize_history')],
-    [Markup.button.callback('« Back', 'my_wallet')]
+    [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
   ]))
 })
 
@@ -106,7 +106,7 @@ You can deposit crypto to this address.
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
               [Markup.button.callback('QR Code', 'deposit_qrcode')],
-              [Markup.button.callback('« Back', 'my_wallet')]
+              [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
             ]
         )
       }
@@ -149,7 +149,7 @@ Set to your Google Authenticator and send me current code to submit config.`, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('Show QR code', '2fa-qr-code')],
-        [Markup.button.callback('« Back', 'my_wallet')]
+        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
       ])
     })
     return
@@ -158,7 +158,7 @@ Set to your Google Authenticator and send me current code to submit config.`, {
   ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
   await ctx.answerCbQuery()
   await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back', 'my_wallet')]
+    [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
   ]))
 })
 
@@ -179,7 +179,7 @@ bot.on('message', async (ctx) => {
         }
       }))
       await ctx.reply(`2FA is set up successfully.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back', 'my_wallet')]
+        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
       ]))
     }
   }
@@ -192,7 +192,7 @@ bot.on('message', async (ctx) => {
 Private key: ${account.privateKey}
 
 Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back', 'my_wallet')]
+        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
       ]))
     }
   }
