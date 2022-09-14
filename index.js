@@ -4,6 +4,7 @@ const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers');
 const twofactor = require("node-2fa");
+const axios = require('axios');
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -90,6 +91,31 @@ bot.action('prize', async (ctx) => {
     [Markup.button.callback('History', 'prize_history')],
     [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
   ]))
+})
+
+bot.action('send_prize', async (ctx) => {
+  const address = ownedAccountBy(ctx.update.callback_query.from.id).address
+  try {
+    const req = await axios.get(`https://api.debank.com/user/addr?addr=${address}`)
+    const used_chains = req.data.data.used_chains
+    if (used_chains.length === 0) {
+      await ctx.editMessageText('You have not used any network yet.', Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Prize', 'prize')],
+      ]))
+      return
+    }
+    await ctx.answerCbQuery()
+    await ctx.editMessageText('Choose a network from the list below:', Markup.inlineKeyboard([
+      used_chains.map((chain) => {
+        return [Markup.button.callback(chain, `send_prize_network_${chain}`)]
+      }),
+      [Markup.button.callback('« Back to Prize', 'prize')]
+    ]))
+  } catch (e) {
+    await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Prize', 'prize')]
+    ]))
+  }
 })
 
 bot.action('deposit', async (ctx) => {
