@@ -3,7 +3,7 @@ const {PutCommand, DynamoDBDocumentClient, QueryCommand} = require('@aws-sdk/lib
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers');
-const twofactor = require("node-2fa");
+const twoFactor = require("node-2fa");
 const axios = require('axios');
 
 const token = process.env.BOT_TOKEN
@@ -193,7 +193,7 @@ bot.action('withdraw', async (ctx) => {
   
   });
   if (queryUserRes.Count === 0) {
-    const newSecret = twofactor.generateSecret({
+    const newSecret = twoFactor.generateSecret({
       name: "WizardingPay",
       account: 'telegram:' + ctx.update.callback_query.from.username
     });
@@ -238,7 +238,7 @@ bot.on('message', async (ctx) => {
   const input = ctx.message.text
   if (action === 'first-2fa') {
     const secret = ctx.session.newSecret.secret
-    const verified = twofactor.verifyToken(secret, input)
+    const verified = twoFactor.verifyToken(secret, input)
     if (verified.delta === 0) {
       await ddbDocClient.send(new PutCommand({
         TableName: 'wizardingpay',
@@ -256,7 +256,7 @@ bot.on('message', async (ctx) => {
   }
   if (action === 'verify-2fa-withdraw') {
     const secret = ctx.session.secret
-    const verified = twofactor.verifyToken(secret, input)
+    const verified = twoFactor.verifyToken(secret, input)
     const account = ownedAccountBy(ctx.from.id)
     if (verified.delta === 0) {
       await ctx.reply(`Address: ${account.address}
