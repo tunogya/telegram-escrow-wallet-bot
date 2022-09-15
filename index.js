@@ -77,12 +77,12 @@ bot.action('my_wallet', async (ctx) => {
       url: `https://api.debank.com/user/total_balance?addr=${address}`,
     })
     if (req) {
-      const balance = req.data.data.total_usd_value || 0
+      const balance = Number(req.data.data.total_usd_value) || 0
       await ctx.answerCbQuery()
       await ctx.editMessageText(`
 *💰 My Wallet*
 
-Total USD Value: $${balance}`,
+Total USD Value: $${balance.toFixed(2)}`,
           {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
