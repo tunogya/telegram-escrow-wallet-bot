@@ -88,7 +88,7 @@ Total USD Value: $${balance}`,
             ...Markup.inlineKeyboard([
               [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
               [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
-              [Markup.button.callback('« Back to menu', 'menu')]
+              [Markup.button.callback('« Back to Menu', 'menu')]
             ])
           }
       )
@@ -104,14 +104,19 @@ bot.action('cheques', async (ctx) => {
 })
 
 bot.action('prize', async (ctx) => {
-  ctx.editMessageText('Welcome to use Wizarding Pay Prize!', Markup.inlineKeyboard([
-    [Markup.button.callback('Send Prize', 'send_prize')],
-    [Markup.button.callback('History', 'prize_history')],
-    [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-  ]))
+  ctx.editMessageText(`*💎 WizardingPay Prize*
+
+Next, you will only see the network and tokens for which the account was activated.`, {
+    parse_mode: 'Markdown',
+    ...Markup.inlineKeyboard([
+      [Markup.button.callback('🚀 Send Now', 'send_prize_choose_network')],
+      [Markup.button.callback('🔍 History', 'prize_history')],
+      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+    ])
+  })
 })
 
-bot.action('send_prize', async (ctx) => {
+bot.action('send_prize_choose_network', async (ctx) => {
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   try {
     const req = await axios.get(`https://api.debank.com/user/addr?addr=${address}`)
@@ -123,17 +128,25 @@ bot.action('send_prize', async (ctx) => {
       return
     }
     await ctx.answerCbQuery()
+    const networks = used_chains.map((chain) => [Markup.button.callback(chain.toUpperCase(), `send_prize_network_${chain}`)])
     await ctx.editMessageText('Choose a network from the list below:', Markup.inlineKeyboard([
-      used_chains.map((chain) => {
-        return [Markup.button.callback(chain, `send_prize_network_${chain}`)]
-      }),
-      [Markup.button.callback('« Back to Prize', 'prize')]
+      ...networks, [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
   } catch (e) {
     await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
   }
+})
+
+bot.action(/send_prize_network_.*/, async (ctx) => {
+  const network = ctx.match[0].split('_')[3]
+  ctx.editMessageText(`Choose a Token from the list below:
+
+Prize config:
+- network: ${network}`, Markup.inlineKeyboard([
+    [Markup.button.callback('« Back to Prize', 'prize')]
+  ]))
 })
 
 bot.action('deposit', async (ctx) => {
@@ -204,6 +217,20 @@ Set to your Google Authenticator and send me current code to submit config.`, {
   await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
     [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
   ]))
+})
+
+bot.action('2fa-qr-code', async (ctx) => {
+  try {
+    const newSecret = ctx.session.newSecret
+    await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${newSecret}`, {
+      caption: `*${ctx.update.callback_query.from.username ?? 'Your'} WizardingPay 2FA QR code*: ${newSecret}`,
+      parse_mode: 'Markdown'
+    })
+  } catch (_) {
+    await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+    ]))
+  }
 })
 
 bot.on('message', async (ctx) => {
