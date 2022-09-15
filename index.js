@@ -41,11 +41,14 @@ bot.start(async (ctx) => {
   await ctx.reply(`
 @WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
 
-Join our channel (https://t.me/wizardingpay) to receive news about updates.
-`, Markup.inlineKeyboard([
-        [Markup.button.callback('💰 My Wallet', 'my_wallet')],
-        [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
-      ])
+Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay) to receive news about updates.
+`, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('💰 My Wallet', 'my_wallet')],
+          [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
+        ])
+      }
   )
 })
 
@@ -55,30 +58,45 @@ bot.action('menu', async (ctx) => {
   await ctx.editMessageText(`
 @WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
 
-Join our channel (https://t.me/wizardingpay) to receive news about updates.
-`, Markup.inlineKeyboard([
-        [Markup.button.callback('💰 My Wallet', 'my_wallet')],
-        [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
-      ])
+Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay) to receive news about updates.
+`, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('💰 My Wallet', 'my_wallet')],
+          [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
+        ])
+      }
   )
 })
 
 bot.action('my_wallet', async (ctx) => {
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`
+  try {
+    const req = await axios({
+      method: 'get',
+      url: `https://api.debank.com/user/total_balance?addr=${address}`,
+    })
+    if (req) {
+      const balance = req.data.data.total_usd_value || 0
+      await ctx.answerCbQuery()
+      await ctx.editMessageText(`
 *💰 My Wallet*
 
-ETH: ${address}`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-          [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
-          [Markup.button.callback('« Back to menu', 'menu')]
-        ])
-      }
-  )
+Total USD Value: $${balance}`,
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+              [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
+              [Markup.button.callback('« Back to menu', 'menu')]
+            ])
+          }
+      )
+    }
+  } catch (e) {
+  
+  }
+  
 })
 
 bot.action('cheques', async (ctx) => {
