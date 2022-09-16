@@ -189,7 +189,7 @@ bot.action('deposit_qrcode', async (ctx) => {
       caption: `*${ctx.update.callback_query.from.username ?? 'Your'} WizardingPay deposit address*: ${address}`,
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🗑 Delete', 'delete')]
+        [Markup.button.callback('🗑', 'delete')]
       ])
     })
   } catch (_) {
@@ -377,7 +377,7 @@ bot.action('2fa-qr-code', async (ctx) => {
 ${newSecret.secret}`,
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('🗑 Delete', 'delete')]
+        [Markup.button.callback('🗑', 'delete')]
       ])
     })
   } catch (_) {
