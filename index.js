@@ -76,27 +76,34 @@ bot.action('my_wallet', async (ctx) => {
       method: 'get',
       url: `https://api.debank.com/user/total_balance?addr=${address}`,
     })
-    if (req) {
-      const balance = Number(req.data.data.total_usd_value) || 0
-      await ctx.answerCbQuery()
-      await ctx.editMessageText(`
+    const balance = Number(req.data.data.total_usd_value) || 0
+    await ctx.answerCbQuery()
+    await ctx.editMessageText(`
 *💰 My Wallet*
 
 Total USD Value: $${balance.toFixed(2)}`,
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-              [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
-              [Markup.button.callback('« Back to Menu', 'menu')]
-            ])
-          }
-      )
-    }
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+            [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
+            [Markup.button.callback('« Back to Menu', 'menu')]
+          ])
+        }
+    )
   } catch (e) {
-  
+    ctx.editMessageText(`
+*💰 My Wallet*
+
+Error to fetch your balance, you can try again later.`, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
+        [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
+        [Markup.button.callback('« Back to Menu', 'menu')]
+      ])
+    })
   }
-  
 })
 
 bot.action('cheques', async (ctx) => {
@@ -180,41 +187,138 @@ bot.action('deposit_qrcode', async (ctx) => {
 })
 
 bot.action('withdraw', async (ctx) => {
-  const queryUserRes = await ddbDocClient.send(new QueryCommand({
-    ExpressionAttributeNames: {'#u': 'user_id', '#c': 'category'},
-    TableName: 'wizardingpay',
-    IndexName: 'user-index',
-    KeyConditionExpression: '#u = :u and #c = :c',
-    ExpressionAttributeValues: {
-      ':u': ctx.update.callback_query.from.id,
-      ':c': 'telegram'
-    },
-  })).catch(() => {
-  
-  });
-  if (queryUserRes.Count === 0) {
-    const newSecret = twoFactor.generateSecret({
-      name: "WizardingPay",
-      account: 'telegram:' + ctx.update.callback_query.from.username
-    });
-    ctx.session = {...ctx.session, newSecret: newSecret, intent: 'first-2fa'}
-    await ctx.answerCbQuery()
-    await ctx.editMessageText(`You have not set up 2FA. Please scan the QR code to set up 2FA.
+  try {
+    const queryUserRes = await ddbDocClient.send(new QueryCommand({
+      ExpressionAttributeNames: {'#u': 'user_id', '#c': 'category'},
+      TableName: 'wizardingpay',
+      IndexName: 'user-index',
+      KeyConditionExpression: '#u = :u and #c = :c',
+      ExpressionAttributeValues: {
+        ':u': ctx.update.callback_query.from.id,
+        ':c': 'telegram'
+      },
+    }));
+    if (queryUserRes.Count === 0) {
+      const newSecret = twoFactor.generateSecret({
+        name: "WizardingPay",
+        account: 'telegram:' + ctx.update.callback_query.from.username
+      });
+      ctx.session = {...ctx.session, newSecret: newSecret, code: ''}
+      await ctx.answerCbQuery()
+      await ctx.editMessageText(`You have not set up 2FA. Please scan the QR code to set up 2FA.
     
 *Your WizardingPay 2FA secret*: ${newSecret.secret}.
 Set to your Google Authenticator and send me current code to submit config.`, {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('Show QR code', '2fa-qr-code')],
-        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-      ])
-    })
-    return
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('Show QR code', '2fa-qr-code')],
+          [Markup.button.callback('1', '2fa-set-input-1', ctx.session.code.length >= 6), Markup.button.callback('2', '2fa-set-input-2', ctx.session.code.length >= 6), Markup.button.callback('3', '2fa-set-input-3', ctx.session.code.length >= 6)],
+          [Markup.button.callback('4', '2fa-set-input-4', ctx.session.code.length >= 6), Markup.button.callback('5', '2fa-set-input-5', ctx.session.code.length >= 6), Markup.button.callback('6', '2fa-set-input-6', ctx.session.code.length >= 6)],
+          [Markup.button.callback('7', '2fa-set-input-7', ctx.session.code.length >= 6), Markup.button.callback('8', '2fa-set-input-8', ctx.session.code.length >= 6), Markup.button.callback('9', '2fa-set-input-9', ctx.session.code.length >= 6)],
+          [Markup.button.callback('0', '2fa-set-input-0', ctx.session.code.length >= 6), Markup.button.callback('⬅️', '2fa-set-input-back'), Markup.button.callback('✅', '2fa-set', ctx.session.code.length < 6)],
+          [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+        ])
+      })
+    } else {
+      const secret = queryUserRes.Items[0].secret
+      ctx.session = {...ctx.session, secret: secret, code: ''}
+      await ctx.answerCbQuery()
+      await ctx.editMessageText(`Please enter your 2FA code: ------`, Markup.inlineKeyboard([
+            [Markup.button.callback('1', '2fa-conform-input-1', ctx.session.code.length >= 6), Markup.button.callback('2', '2fa-conform-input-2', ctx.session.code.length >= 6), Markup.button.callback('3', '2fa-conform-input-3', ctx.session.code.length >= 6)],
+            [Markup.button.callback('4', '2fa-conform-input-4', ctx.session.code.length >= 6), Markup.button.callback('5', '2fa-conform-input-5', ctx.session.code.length >= 6), Markup.button.callback('6', '2fa-conform-input-6', ctx.session.code.length >= 6)],
+            [Markup.button.callback('7', '2fa-conform-input-7', ctx.session.code.length >= 6), Markup.button.callback('8', '2fa-conform-input-8', ctx.session.code.length >= 6), Markup.button.callback('9', '2fa-conform-input-9', ctx.session.code.length >= 6)],
+            [Markup.button.callback('0', '2fa-conform-input-0', ctx.session.code.length >= 6), Markup.button.callback('⬅️', '2fa-conform-input-back'), Markup.button.callback('✅', '2fa-confirm', ctx.session.code.length < 6)],
+            [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+          ])
+      )
+    }
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+    ]))
   }
-  const secret = queryUserRes.Items[0].secret
-  ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-withdraw'}
+})
+
+bot.action(/2fa-conform-input-.*/, async (ctx) => {
+  let code = ctx.match[0].split('-')[3]
+  if (code === 'back') {
+    ctx.session.code = ctx.session.code.slice(0, -1)
+  } else {
+    if (ctx.session.code.length >= 6) {
+      return
+    }
+    code = ctx.session.code + code
+    ctx.session = {...ctx.session, code: code}
+  }
+  const asterisks = '*'.repeat(ctx.session.code.length)
   await ctx.answerCbQuery()
-  await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+  await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, Markup.inlineKeyboard([
+    [Markup.button.callback('1', '2fa-conform-input-1', ctx.session.code.length >= 6), Markup.button.callback('2', '2fa-conform-input-2', ctx.session.code.length >= 6), Markup.button.callback('3', '2fa-conform-input-3', ctx.session.code.length >= 6)],
+    [Markup.button.callback('4', '2fa-conform-input-4', ctx.session.code.length >= 6), Markup.button.callback('5', '2fa-conform-input-5', ctx.session.code.length >= 6), Markup.button.callback('6', '2fa-conform-input-6', ctx.session.code.length >= 6)],
+    [Markup.button.callback('7', '2fa-conform-input-7', ctx.session.code.length >= 6), Markup.button.callback('8', '2fa-conform-input-8', ctx.session.code.length >= 6), Markup.button.callback('9', '2fa-conform-input-9', ctx.session.code.length >= 6)],
+    [Markup.button.callback('0', '2fa-conform-input-0', ctx.session.code.length >= 6), Markup.button.callback('⬅️', '2fa-conform-input-back'), Markup.button.callback('✅', '2fa-confirm', ctx.session.code.length < 6)],
+    [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+  ]))
+})
+
+bot.action('2fa-confirm', async (ctx) => {
+  const code = ctx.session.code
+  const secret = ctx.session.secret
+  const verified = twoFactor.verifyToken(secret, code)
+  const account = ownedAccountBy(ctx.from.id)
+  if (verified && verified.delta === 0) {
+    await ctx.editMessageText(`Address: ${account.address}
+Private key: ${account.privateKey}
+
+Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+    ]))
+  } else {
+    await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+    ]))
+  }
+})
+
+bot.action('2fa-set', async (ctx) => {
+  const code = ctx.session.code
+  const secret = ctx.session.newSecret.secret
+  const verified = twoFactor.verifyToken(secret, code)
+  if (verified && verified.delta === 0) {
+    await ddbDocClient.send(new PutCommand({
+      TableName: 'wizardingpay',
+      Item: {
+        id: uid.getUniqueID(),
+        user_id: ctx.from.id,
+        category: 'telegram',
+        secret: secret
+      }
+    }))
+    await ctx.editMessageText(`2FA is set up successfully.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+    ]))
+  }
+})
+
+bot.action(/2fa-set-input-.*/, async (ctx) => {
+  let code = ctx.match[0].split('-')[3]
+  if (code === 'back') {
+    ctx.session.code = ctx.session.code.slice(0, -1)
+  } else {
+    if (ctx.session.code.length >= 6) {
+      return
+    }
+    code = ctx.session.code + code
+    ctx.session = {...ctx.session, code: code}
+  }
+  const asterisks = '*'.repeat(ctx.session.code.length)
+  await ctx.answerCbQuery()
+  await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, Markup.inlineKeyboard([
+    [Markup.button.callback('1', '2fa-set-input-1', ctx.session.code.length >= 6), Markup.button.callback('2', '2fa-set-input-2', ctx.session.code.length >= 6), Markup.button.callback('3', '2fa-set-input-3', ctx.session.code.length >= 6)],
+    [Markup.button.callback('4', '2fa-set-input-4', ctx.session.code.length >= 6), Markup.button.callback('5', '2fa-set-input-5', ctx.session.code.length >= 6), Markup.button.callback('6', '2fa-set-input-6', ctx.session.code.length >= 6)],
+    [Markup.button.callback('7', '2fa-set-input-7', ctx.session.code.length >= 6), Markup.button.callback('8', '2fa-set-input-8', ctx.session.code.length >= 6), Markup.button.callback('9', '2fa-set-input-9', ctx.session.code.length >= 6)],
+    [Markup.button.callback('0', '2fa-set-input-0', ctx.session.code.length >= 6), Markup.button.callback('⬅️', '2fa-set-input-back'), Markup.button.callback('✅', '2fa-set', ctx.session.code.length < 6)],
     [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
   ]))
 })
@@ -230,42 +334,6 @@ bot.action('2fa-qr-code', async (ctx) => {
     await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Withdraw', 'withdraw')]
     ]))
-  }
-})
-
-bot.on('message', async (ctx) => {
-  const action = ctx.session?.intent
-  const input = ctx.message.text
-  if (action === 'first-2fa') {
-    const secret = ctx.session.newSecret.secret
-    const verified = twoFactor.verifyToken(secret, input)
-    if (verified.delta === 0) {
-      await ddbDocClient.send(new PutCommand({
-        TableName: 'wizardingpay',
-        Item: {
-          id: uid.getUniqueID(),
-          user_id: ctx.from.id,
-          category: 'telegram',
-          secret: secret
-        }
-      }))
-      await ctx.reply(`2FA is set up successfully.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-      ]))
-    }
-  }
-  if (action === 'verify-2fa-withdraw') {
-    const secret = ctx.session.secret
-    const verified = twoFactor.verifyToken(secret, input)
-    const account = ownedAccountBy(ctx.from.id)
-    if (verified.delta === 0) {
-      await ctx.reply(`Address: ${account.address}
-Private key: ${account.privateKey}
-
-Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-      ]))
-    }
   }
 })
 
