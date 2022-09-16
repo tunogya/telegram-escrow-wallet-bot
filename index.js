@@ -119,7 +119,7 @@ bot.action('prize', async (ctx) => {
 Next, you will only see the network and tokens for which the account was activated.`, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback('🚀 Send Now', 'send_prize_choose_network')],
+      [Markup.button.callback('🚀 Send', 'send_prize_choose_network')],
       [Markup.button.callback('🔍 History', 'prize_history')],
       [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
     ])
@@ -144,20 +144,75 @@ bot.action('send_prize_choose_network', async (ctx) => {
     ]))
   } catch (e) {
     await ctx.answerCbQuery('Error to fetch your balance, you can try again later.')
-    await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Prize', 'prize')]
-    ]))
   }
 })
 
 bot.action(/send_prize_network_.*/, async (ctx) => {
   const network = ctx.match[0].split('_')[3]
-  ctx.editMessageText(`Choose a Token from the list below:
+  ctx.session = {...ctx.session, network}
+  const address = ownedAccountBy(ctx.update.callback_query.from.id).address
+  try {
+    const req = await axios(`https://api.debank.com/token/balance_list?user_addr=${address}&is_all=false&chain=${network}`)
+    const balance_list = req.data.data
+    if (balance_list.length === 0) {
+      await ctx.answerCbQuery('You have not used any token yet.')
+      await ctx.editMessageText('You have not used any token yet.', Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Prize', 'prize')],
+      ]))
+      return
+    }
+    ctx.session = {...ctx.session, balance_list}
+    const tokens = balance_list.map((token, index) => [Markup.button.callback(token.symbol, `send_prize_token_${index}`)])
+    await ctx.answerCbQuery()
+    ctx.editMessageText(`
+Network is ${network}.
 
-Prize config:
-- network: ${network}`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back to Prize', 'prize')]
-  ]))
+Choose a Token from the list below:
+`, Markup.inlineKeyboard([
+      ...tokens, [Markup.button.callback('« Back to Prize', 'prize')]
+    ]))
+  } catch (e) {
+    await ctx.answerCbQuery('Error to fetch your balance, you can try again later.')
+  }
+})
+
+const sendPrizeAmount_inlineKeyboard = Markup.inlineKeyboard([
+  [Markup.button.callback('1', 'send_prize_amount_1'), Markup.button.callback('2', 'send_prize_amount_2'), Markup.button.callback('3', 'send_prize_amount_3')],
+  [Markup.button.callback('4', 'send_prize_amount_4'), Markup.button.callback('5', 'send_prize_amount_5'), Markup.button.callback('6', 'send_prize_amount_6')],
+  [Markup.button.callback('7', 'send_prize_amount_7'), Markup.button.callback('8', 'send_prize_amount_8'), Markup.button.callback('9', 'send_prize_amount_9')],
+  [Markup.button.callback('0', 'send_prize_amount_0'), Markup.button.callback('⬅️', 'send_prize_amount_back'), Markup.button.callback('✅', 'confirm-send-prize-amount')],
+  [Markup.button.callback('« Back to Prize', 'prize')]
+])
+
+bot.action(/send_prize_amount_.*/, async (ctx) => {
+  const number = ctx.match[0].split('_')[3]
+  const network = ctx.session.network
+  const token = ctx.session.balance_list[ctx.session.index]
+  if (number === 'back') {
+    if (ctx.session.amount.length === 1) {
+      ctx.session.amount = '0'
+    } else {
+      ctx.session.amount = ctx.session.amount.slice(0, ctx.session.amount.length - 1)
+    }
+  } else {
+    ctx.session.amount = ctx.session.amount + number
+  }
+  await ctx.answerCbQuery()
+  ctx.editMessageText(`Network is ${network},
+Token is ${token.name}.
+
+Enter the amount to put into the prize: ${ctx.session.amount} ${token.symbol}`, sendPrizeAmount_inlineKeyboard)
+})
+
+bot.action(/send_prize_token_.*/, async (ctx) => {
+  const index = ctx.match[0].split('_')[3]
+  ctx.session = {...ctx.session, index, amount: ''}
+  const token = ctx.session.balance_list[index]
+  const network = ctx.session.network
+  ctx.editMessageText(`Network is ${network},
+Token is ${token.name}.
+
+Enter the amount to put into the prize: 0 ${token.symbol}`, sendPrizeAmount_inlineKeyboard)
 })
 
 bot.action('deposit', async (ctx) => {
@@ -194,9 +249,6 @@ bot.action('deposit_qrcode', async (ctx) => {
     })
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText(`Something went wrong, please try again later.`, Markup.inlineKeyboard([
-      [Markup.button.callback('QR Code', 'deposit_qrcode')]
-    ]))
   }
 })
 
@@ -249,9 +301,6 @@ Please enter your 2FA code: ------`, _2fa_set_inlineKeyboard)
     }
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-    ]))
   }
 })
 
@@ -272,9 +321,6 @@ bot.action(/2fa-conform-input-.*/, async (ctx) => {
     await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_conform_inlineKeyboard)
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
   }
 })
 
@@ -294,15 +340,9 @@ Delete this message immediately after you have copied the private key.`, Markup.
       ]))
     } else {
       await ctx.answerCbQuery('Invalid 2FA code.')
-      await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-      ]))
     }
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
   }
 })
 
@@ -327,15 +367,9 @@ bot.action('2fa-set', async (ctx) => {
       ]))
     } else {
       await ctx.answerCbQuery('Something went wrong.')
-      await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-      ]))
     }
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
   }
 })
 
@@ -362,9 +396,6 @@ Your WizardingPay 2FA secret: ${newSecret.secret}
 Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_set_inlineKeyboard)
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
-    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
   }
 })
 
@@ -382,9 +413,6 @@ ${newSecret.secret}`,
     })
   } catch (_) {
     await ctx.answerCbQuery("Something went wrong.")
-    await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
   }
 })
 
