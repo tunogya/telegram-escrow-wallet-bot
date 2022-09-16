@@ -107,7 +107,10 @@ Error to fetch your balance, you can try again later.`, {
 })
 
 bot.action('cheques', async (ctx) => {
-  await ctx.editMessageText(`Sorry, all bot operations are unavailable for your region.`)
+  await ctx.answerCbQuery()
+  await ctx.editMessageText(`Sorry, all bot operations are unavailable for your region.`, Markup.inlineKeyboard([
+    [Markup.button.callback('« Back to My Wallet', 'my_wallet')],
+  ]))
 })
 
 bot.action('prize', async (ctx) => {
@@ -140,6 +143,7 @@ bot.action('send_prize_choose_network', async (ctx) => {
       ...networks, [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
   } catch (e) {
+    await ctx.answerCbQuery('Error to fetch your balance, you can try again later.')
     await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
@@ -178,12 +182,22 @@ You can deposit crypto to this address.
 })
 
 bot.action('deposit_qrcode', async (ctx) => {
-  const address = ownedAccountBy(ctx.update.callback_query.from.id).address
-  await ctx.answerCbQuery()
-  await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
-    caption: `*${ctx.update.callback_query.from.username ?? 'Your'} WizardingPay deposit address*: ${address}`,
-    parse_mode: 'Markdown'
-  })
+  try {
+    const address = ownedAccountBy(ctx.update.callback_query.from.id).address
+    await ctx.answerCbQuery()
+    await ctx.replyWithPhoto(`https://raw.wakanda-labs.com/qrcode?text=${address}`, {
+      caption: `*${ctx.update.callback_query.from.username ?? 'Your'} WizardingPay deposit address*: ${address}`,
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🗑 Delete', 'delete')]
+      ])
+    })
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText(`Something went wrong, please try again later.`, Markup.inlineKeyboard([
+      [Markup.button.callback('QR Code', 'deposit_qrcode')]
+    ]))
+  }
 })
 
 const _2fa_set_inlineKeyboard = Markup.inlineKeyboard([
@@ -242,98 +256,144 @@ Please enter your 2FA code: ------`, _2fa_set_inlineKeyboard)
 })
 
 bot.action(/2fa-conform-input-.*/, async (ctx) => {
-  let code = ctx.match[0].split('-')[3]
-  if (code === 'back') {
-    ctx.session.code = ctx.session.code.slice(0, -1)
-  } else {
-    if (ctx.session.code.length >= 6) {
-      return
+  try {
+    let code = ctx.match[0].split('-')[3]
+    if (code === 'back') {
+      ctx.session.code = ctx.session.code.slice(0, -1)
+    } else {
+      if (ctx.session.code.length >= 6) {
+        return
+      }
+      code = ctx.session.code + code
+      ctx.session = {...ctx.session, code: code}
     }
-    code = ctx.session.code + code
-    ctx.session = {...ctx.session, code: code}
+    const asterisks = '*'.repeat(ctx.session.code.length)
+    await ctx.answerCbQuery()
+    await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_conform_inlineKeyboard)
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+    ]))
   }
-  const asterisks = '*'.repeat(ctx.session.code.length)
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_conform_inlineKeyboard)
 })
 
 bot.action('2fa-confirm', async (ctx) => {
-  const code = ctx.session.code
-  const secret = ctx.session.secret
-  const verified = twoFactor.verifyToken(secret, code)
-  const account = ownedAccountBy(ctx.from.id)
-  if (verified && verified.delta === 0) {
-    await ctx.editMessageText(`Address: ${account.address}
+  try {
+    const code = ctx.session.code
+    const secret = ctx.session.secret
+    const verified = twoFactor.verifyToken(secret, code)
+    const account = ownedAccountBy(ctx.from.id)
+    if (verified && verified.delta === 0) {
+      await ctx.answerCbQuery()
+      await ctx.editMessageText(`Address: ${account.address}
 Private key: ${account.privateKey}
 
 Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-    ]))
-  } else {
-    await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+      ]))
+    } else {
+      await ctx.answerCbQuery('Invalid 2FA code.')
+      await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+      ]))
+    }
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Withdraw', 'withdraw')]
     ]))
   }
 })
 
 bot.action('2fa-set', async (ctx) => {
-  const code = ctx.session.code
-  const secret = ctx.session.newSecret.secret
-  const verified = twoFactor.verifyToken(secret, code)
-  if (verified && verified.delta === 0) {
-    await ddbDocClient.send(new PutCommand({
-      TableName: 'wizardingpay',
-      Item: {
-        id: uid.getUniqueID(),
-        user_id: ctx.from.id,
-        category: 'telegram',
-        secret: secret
-      }
-    }))
-    await ctx.editMessageText(`2FA is set up successfully.`, Markup.inlineKeyboard([
-      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-    ]))
-  } else {
-    await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
+  try {
+    const code = ctx.session.code
+    const secret = ctx.session.newSecret.secret
+    const verified = twoFactor.verifyToken(secret, code)
+    if (verified && verified.delta === 0) {
+      await ddbDocClient.send(new PutCommand({
+        TableName: 'wizardingpay',
+        Item: {
+          id: uid.getUniqueID(),
+          user_id: ctx.from.id,
+          category: 'telegram',
+          secret: secret
+        }
+      }))
+      await ctx.answerCbQuery()
+      await ctx.editMessageText(`2FA is set up successfully.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+      ]))
+    } else {
+      await ctx.answerCbQuery('Something went wrong.')
+      await ctx.editMessageText(`Invalid code. Please try again.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+      ]))
+    }
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Withdraw', 'withdraw')]
     ]))
   }
 })
 
 bot.action(/2fa-set-input-.*/, async (ctx) => {
-  let code = ctx.match[0].split('-')[3]
-  if (code === 'back') {
-    ctx.session.code = ctx.session.code.slice(0, -1)
-  } else {
-    if (ctx.session.code.length >= 6) {
-      return
+  try {
+    let code = ctx.match[0].split('-')[3]
+    if (code === 'back') {
+      ctx.session.code = ctx.session.code.slice(0, -1)
+    } else {
+      if (ctx.session.code.length >= 6) {
+        return
+      }
+      code = ctx.session.code + code
+      ctx.session = {...ctx.session, code: code}
     }
-    code = ctx.session.code + code
-    ctx.session = {...ctx.session, code: code}
-  }
-  const asterisks = '*'.repeat(ctx.session.code.length)
-  const newSecret = ctx.session.newSecret
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`
+    const asterisks = '*'.repeat(ctx.session.code.length)
+    const newSecret = ctx.session.newSecret
+    await ctx.answerCbQuery()
+    await ctx.editMessageText(`
 You have not set up 2FA. Please scan the QR code to set up 2FA.
 
 Your WizardingPay 2FA secret: ${newSecret.secret}
 
 Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_set_inlineKeyboard)
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.editMessageText('Something went wrong. Please try again later.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+    ]))
+  }
 })
 
 bot.action('2fa-qr-code', async (ctx) => {
   try {
     const newSecret = ctx.session.newSecret
+    await ctx.answerCbQuery()
     await ctx.replyWithPhoto(newSecret.qr, {
       caption: `*WizardingPay 2FA Secret*:
 ${newSecret.secret}`,
       parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🗑 Delete', 'delete')]
+      ])
     })
   } catch (_) {
+    await ctx.answerCbQuery("Something went wrong.")
     await ctx.editMessageText('Sorry, something went wrong.', Markup.inlineKeyboard([
       [Markup.button.callback('« Back to Withdraw', 'withdraw')]
     ]))
+  }
+})
+
+bot.action('delete', async (ctx) => {
+  try {
+    await ctx.answerCbQuery()
+    await ctx.deleteMessage()
+  } catch (_) {
+    await ctx.answerCbQuery("Something went wrong.")
   }
 })
 
