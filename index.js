@@ -1,5 +1,5 @@
 const {Telegraf, Markup, session} = require('telegraf');
-const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand} = require('@aws-sdk/lib-dynamodb');
+const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand, ScanCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers');
@@ -125,6 +125,38 @@ Next, you will only see the network and tokens for which the account was activat
       [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
     ])
   })
+})
+
+bot.action('prize_history', async (ctx) => {
+  const result = await ddbDocClient.send(new ScanCommand({
+    TableName: 'wizardingpay',
+    IndexName: 'prize-index',
+    FilterExpression: '#s <> :s',
+    ExpressionAttributeNames: {
+      '#s': 'status',
+    },
+    ExpressionAttributeValues: {
+      ':s': 'close',
+    },
+  })).catch(() => {
+    ctx.answerCbQuery("Fetch pending NEST Prize failed, please try again later.")
+    ctx.reply("Fetch pending NEST Prize failed, please try again later.")
+  });
+  if (result.Count === 0) {
+    ctx.editMessageText(`No Prize here.`, Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Prize', 'prize')]
+    ]))
+    return
+  }
+  const buttons = result.Items.map((item) => {
+    return [Markup.button.callback(`${item.value} ${item.token.symbol} to "${item.chat.title || item.chat.username || item.chat.id}"`, `prize_${item.id}`)]
+  })
+  
+  await ctx.answerCbQuery()
+  ctx.editMessageText(`Choose a Prize from the list below:`, Markup.inlineKeyboard([
+    ...buttons,
+    [Markup.button.callback('« Back to Prize', 'prize')]
+  ]))
 })
 
 bot.action('send_prize_choose_network', async (ctx) => {
@@ -293,8 +325,118 @@ bot.action('delete', async (ctx) => {
   }
 })
 
-bot.catch((error) => {
-  console.log(error)
+bot.action('send-prize', async (ctx) => {
+  try {
+    const network = ctx.session.network
+    const token = ctx.session.balance_list[ctx.session.index]
+    const value = ctx.session.value
+    const desc = ctx.session.desc
+    const chat_id = ctx.session.chat_id
+    const quantity= ctx.session.quality
+    try {
+      const res = await ctx.telegram.sendMessage(chat_id,`${desc}`, Markup.inlineKeyboard([
+        [Markup.button.callback('Snatch!', 'snatch')]
+      ]))
+      try {
+        await ddbDocClient.send(new PutCommand({
+          TableName: 'wizardingpay',
+          Item: {
+            id: uid.getUniqueID(),
+            chat_id: res.chat.id,
+            message_id: res.message_id,
+            chat: res.chat,
+            network,
+            token: {
+              id: token.id,
+              name: token.name,
+              symbol: token.symbol,
+              decimals: token.decimals,
+              price: token.price,
+            },
+            value,
+            quantity,
+            desc,
+            status: 'open',
+            record: []
+          }
+        }))
+        await ctx.answerCbQuery('Prize sent successfully.')
+        ctx.editMessageText(`Successfully sent a prize to ${chat_id}.`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Prize', 'prize')],
+        ]))
+      } catch (e) {
+        await ctx.answerCbQuery('Prize saved failed.')
+        ctx.reply('Failed to save prize to dynamodb.')
+      }
+    } catch (e) {
+      await ctx.answerCbQuery('Something went wrong.')
+      ctx.reply(`Failed to send message to ${chat_id}. Please check if the id is correct. And make sure the bot is added to the recipient's chat.`)
+    }
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.reply('Something went wrong.')
+  }
+})
+
+bot.action('snatch', async (ctx) => {
+  try {
+    const queryPrizeRes = await ddbDocClient.send(new QueryCommand({
+      ExpressionAttributeNames: {'#chat_id': 'chat_id', '#message_id': 'message_id'},
+      TableName: 'wizardingpay',
+      IndexName: 'prize-index',
+      KeyConditionExpression: '#chat_id = :chat_id AND #message_id = :message_id',
+      ExpressionAttributeValues: {
+        ':chat_id': ctx.update.callback_query.message.chat.id,
+        ':message_id': ctx.update.callback_query.message.message_id,
+      },
+    }))
+    if (!queryPrizeRes || queryPrizeRes.Count === 0) {
+      ctx.answerCbQuery("Sorry, this Prize is not found.")
+      return
+    }
+    const prize = queryPrizeRes.Items[0]
+    if (prize.record.some(record => record.user_id === ctx.update.callback_query.from.id)) {
+      await ctx.answerCbQuery('You have already snatched this Prize!')
+      return
+    }
+    if (prize.status !== 'open') {
+      await ctx.answerCbQuery(`Sorry, you are late.`)
+      return
+    }
+    let status = "open", value = 0
+    if (prize.record.length + 1 >= prize.quantity) {
+      status = "pending"
+      if (prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0) > 0) {
+        value = prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)
+      }
+    } else {
+      value = ((prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)) * Math.random()).toFixed(2)
+    }
+    try {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: 'wizardingpay',
+        Key: {id: prize.id},
+        UpdateExpression: 'set updated_at = :updated_at, #record = list_append(#record, :record), #status = :status',
+        ExpressionAttributeNames: {'#record': 'record', '#status': 'status'},
+        ExpressionAttributeValues: {
+          ':updated_at': new Date().getTime(),
+          ':record': [{
+            user_id: ctx.update.callback_query.from.id,
+            username: ctx.update.callback_query.from.username,
+            value,
+            created_at: new Date().getTime(),
+          }],
+          ':status': status,
+        }
+      }))
+      await ctx.answerCbQuery(`You have snatched ${value} ${prize.token.symbol}!`)
+      ctx.reply(`Congratulations! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value} ${prize.token.symbol}!`)
+    }catch (e) {
+      await ctx.answerCbQuery('Sorry, snatch failed.')
+    }
+  } catch (e) {
+    await ctx.answerCbQuery('Something went wrong.')
+  }
 })
 
 bot.on('message', async (ctx) => {
@@ -383,8 +525,8 @@ Description: ${ctx.session.desc}.
 
 Please enter the recipient's id:
       `, Markup.inlineKeyboard([
-          [Markup.button.callback('« Back to Prize', 'prize')],
-        ]))
+        [Markup.button.callback('« Back to Prize', 'prize')],
+      ]))
     }
   }
   else if (ctx.session.intent === 'input-prize-recipient') {
@@ -399,8 +541,8 @@ Recipient: ${ctx.session.chat_id}.
 
 Please enter the quality of the prize:
 `, Markup.inlineKeyboard([
-          [Markup.button.callback('« Back to Prize', 'prize')],
-        ]))
+        [Markup.button.callback('« Back to Prize', 'prize')],
+      ]))
     }
   }
   else if (ctx.session?.intent === 'input-prize-quality') {
@@ -423,117 +565,8 @@ Prize quality: ${quality}.
   }
 })
 
-bot.action('send-prize', async (ctx) => {
-  try {
-    const network = ctx.session.network
-    const token = ctx.session.balance_list[ctx.session.index]
-    const value = ctx.session.value
-    const desc = ctx.session.desc
-    const chat_id = ctx.session.chat_id
-    const quantity= ctx.session.quality
-    try {
-      const res = await ctx.telegram.sendMessage(chat_id,`${desc}`, Markup.inlineKeyboard([
-        [Markup.button.callback('Snatch!', 'snatch')]
-      ]))
-      try {
-        await ddbDocClient.send(new PutCommand({
-          TableName: 'wizardingpay',
-          Item: {
-            id: uid.getUniqueID(),
-            chat_id: res.chat.id,
-            message_id: res.message_id,
-            network,
-            token: {
-              id: token.id,
-              name: token.name,
-              symbol: token.symbol,
-              decimals: token.decimals,
-              price: token.price,
-            },
-            value,
-            quantity,
-            desc,
-            status: 'pending',
-            record: []
-          }
-        }))
-        await ctx.answerCbQuery('Prize sent successfully.')
-        ctx.editMessageText(`Successfully sent a prize to ${chat_id}.`, Markup.inlineKeyboard([
-          [Markup.button.callback('« Back to Prize', 'prize')],
-        ]))
-      } catch (e) {
-        await ctx.answerCbQuery('Prize saved failed.')
-        ctx.reply('Failed to save prize to dynamodb.')
-      }
-    } catch (e) {
-      await ctx.answerCbQuery('Something went wrong.')
-      ctx.reply(`Failed to send message to ${chat_id}. Please check if the id is correct. And make sure the bot is added to the recipient's chat.`)
-    }
-  } catch (_) {
-    await ctx.answerCbQuery('Something went wrong.')
-    await ctx.reply('Something went wrong.')
-  }
-})
-
-bot.action('snatch', async (ctx) => {
-  try {
-    const queryPrizeRes = await ddbDocClient.send(new QueryCommand({
-      ExpressionAttributeNames: {'#chat_id': 'chat_id', '#message_id': 'message_id'},
-      TableName: 'wizardingpay',
-      IndexName: 'prize-index',
-      KeyConditionExpression: '#chat_id = :chat_id AND #message_id = :message_id',
-      ExpressionAttributeValues: {
-        ':chat_id': ctx.update.callback_query.message.chat.id,
-        ':message_id': ctx.update.callback_query.message.message_id,
-      },
-    }))
-    if (!queryPrizeRes || queryPrizeRes.Count === 0) {
-      ctx.answerCbQuery("Sorry, this Prize is not found.")
-      return
-    }
-    const prize = queryPrizeRes.Items[0]
-    if (prize.record.some(record => record.user_id === ctx.update.callback_query.from.id)) {
-      await ctx.answerCbQuery('You have already snatched this Prize!')
-      return
-    }
-    if (prize.status !== 'open') {
-      await ctx.answerCbQuery(`Sorry, you are late.`)
-      return
-    }
-    let status = "open", value = 0
-    if (prize.record.length + 1 >= prize.quantity) {
-      status = "pending"
-      if (prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0) > 0) {
-        value = prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)
-      }
-    } else {
-      value = ((prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)) * Math.random()).toFixed(2)
-    }
-    try {
-      await ddbDocClient.send(new UpdateCommand({
-        TableName: 'wizardingpay',
-        Key: {id: prize.id},
-        UpdateExpression: 'set updated_at = :updated_at, #record = list_append(#record, :record), #status = :status',
-        ExpressionAttributeNames: {'#record': 'record', '#status': 'status'},
-        ExpressionAttributeValues: {
-          ':updated_at': new Date().getTime(),
-          ':record': [{
-            user_id: ctx.update.callback_query.from.id,
-            username: ctx.update.callback_query.from.username,
-            value,
-            created_at: new Date().getTime(),
-          }],
-          ':status': status,
-        }
-      }))
-      await ctx.answerCbQuery(`You have snatched ${value} ${prize.token.symbol}!`)
-      ctx.reply(`Congratulations! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value} ${prize.token.symbol}!`)
-    }catch (e) {
-      await ctx.answerCbQuery('Sorry, snatch failed.')
-    }
-  } catch (e) {
-    await ctx.answerCbQuery('Something went wrong.')
-  }
+bot.catch((error) => {
+  console.log(error)
 })
 
 exports.handler = async (event, context, callback) => {
