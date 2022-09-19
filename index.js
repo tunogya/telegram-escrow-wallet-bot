@@ -119,8 +119,8 @@ bot.action('prize', async (ctx) => {
 Next, you will only see the network and tokens for which the account was activated.`, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback('🚀 Send', 'send_prize_choose_network')],
-      [Markup.button.callback('🔍 History', 'prize_history')],
+      [Markup.button.callback('Send', 'send_prize_choose_network')],
+      [Markup.button.callback('History', 'prize_history')],
       [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
     ])
   })
@@ -176,43 +176,17 @@ Choose a Token from the list below:
   }
 })
 
-const sendPrizeAmount_inlineKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('1', 'send_prize_amount_1'), Markup.button.callback('2', 'send_prize_amount_2'), Markup.button.callback('3', 'send_prize_amount_3')],
-  [Markup.button.callback('4', 'send_prize_amount_4'), Markup.button.callback('5', 'send_prize_amount_5'), Markup.button.callback('6', 'send_prize_amount_6')],
-  [Markup.button.callback('7', 'send_prize_amount_7'), Markup.button.callback('8', 'send_prize_amount_8'), Markup.button.callback('9', 'send_prize_amount_9')],
-  [Markup.button.callback('0', 'send_prize_amount_0'), Markup.button.callback('⬅️', 'send_prize_amount_back'), Markup.button.callback('✅', 'confirm-send-prize-amount')],
-  [Markup.button.callback('« Back to Prize', 'prize')]
-])
-
-bot.action(/send_prize_amount_.*/, async (ctx) => {
-  const number = ctx.match[0].split('_')[3]
-  const network = ctx.session.network
-  const token = ctx.session.balance_list[ctx.session.index]
-  if (number === 'back') {
-    if (ctx.session.amount.length === 1) {
-      ctx.session.amount = '0'
-    } else {
-      ctx.session.amount = ctx.session.amount.slice(0, ctx.session.amount.length - 1)
-    }
-  } else {
-    ctx.session.amount = ctx.session.amount + number
-  }
-  await ctx.answerCbQuery()
-  ctx.editMessageText(`Network is ${network},
-Token is ${token.name}.
-
-Enter the amount to put into the prize: ${ctx.session.amount} ${token.symbol}`, sendPrizeAmount_inlineKeyboard)
-})
-
 bot.action(/send_prize_token_.*/, async (ctx) => {
   const index = ctx.match[0].split('_')[3]
-  ctx.session = {...ctx.session, index, amount: ''}
+  ctx.session = {...ctx.session, index, intent: 'input-prize-amount'}
   const token = ctx.session.balance_list[index]
   const network = ctx.session.network
   ctx.editMessageText(`Network is ${network},
 Token is ${token.name}.
 
-Enter the amount to put into the prize: 0 ${token.symbol}`, sendPrizeAmount_inlineKeyboard)
+Enter the amount to put into the prize.`, Markup.inlineKeyboard([
+    [Markup.button.callback('« Back to Prize', 'prize')]
+  ]))
 })
 
 bot.action('deposit', async (ctx) => {
@@ -252,22 +226,6 @@ bot.action('deposit_qrcode', async (ctx) => {
   }
 })
 
-const _2fa_set_inlineKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('1', '2fa-set-input-1'), Markup.button.callback('2', '2fa-set-input-2'), Markup.button.callback('3', '2fa-set-input-3')],
-  [Markup.button.callback('4', '2fa-set-input-4'), Markup.button.callback('5', '2fa-set-input-5'), Markup.button.callback('6', '2fa-set-input-6')],
-  [Markup.button.callback('7', '2fa-set-input-7'), Markup.button.callback('8', '2fa-set-input-8'), Markup.button.callback('9', '2fa-set-input-9')],
-  [Markup.button.callback('0', '2fa-set-input-0'), Markup.button.callback('⬅️', '2fa-set-input-back'), Markup.button.callback('✅', '2fa-set')],
-  [Markup.button.callback('QR Code', '2fa-qr-code'), Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-])
-
-const _2fa_conform_inlineKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('1', '2fa-conform-input-1'), Markup.button.callback('2', '2fa-conform-input-2'), Markup.button.callback('3', '2fa-conform-input-3')],
-  [Markup.button.callback('4', '2fa-conform-input-4'), Markup.button.callback('5', '2fa-conform-input-5'), Markup.button.callback('6', '2fa-conform-input-6')],
-  [Markup.button.callback('7', '2fa-conform-input-7'), Markup.button.callback('8', '2fa-conform-input-8'), Markup.button.callback('9', '2fa-conform-input-9')],
-  [Markup.button.callback('0', '2fa-conform-input-0'), Markup.button.callback('⬅️', '2fa-conform-input-back'), Markup.button.callback('✅', '2fa-confirm')],
-  [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
-])
-
 bot.action('withdraw', async (ctx) => {
   try {
     const queryUserRes = await ddbDocClient.send(new QueryCommand({
@@ -285,115 +243,24 @@ bot.action('withdraw', async (ctx) => {
         name: "WizardingPay",
         account: 'telegram:' + ctx.update.callback_query.from.username
       });
-      ctx.session = {...ctx.session, newSecret: newSecret, code: ''}
+      ctx.session = {...ctx.session, newSecret: newSecret, intent: 'set-2fa-code'}
       await ctx.answerCbQuery()
       await ctx.editMessageText(`You have not set up 2FA. Please scan the QR code to set up 2FA.
     
 Your WizardingPay 2FA secret: ${newSecret.secret}
 
-Please enter your 2FA code: ------`, _2fa_set_inlineKeyboard)
-    } else {
-      const secret = queryUserRes.Items[0].secret
-      ctx.session = {...ctx.session, secret: secret, code: ''}
-      await ctx.answerCbQuery()
-      await ctx.editMessageText(`Please enter your 2FA code: ------`, _2fa_conform_inlineKeyboard
-      )
-    }
-  } catch (_) {
-    await ctx.answerCbQuery('Something went wrong.')
-  }
-})
-
-bot.action(/2fa-conform-input-.*/, async (ctx) => {
-  try {
-    let code = ctx.match[0].split('-')[3]
-    if (code === 'back') {
-      ctx.session.code = ctx.session.code.slice(0, -1)
-    } else {
-      if (ctx.session.code.length >= 6) {
-        return
-      }
-      code = ctx.session.code + code
-      ctx.session = {...ctx.session, code: code}
-    }
-    const asterisks = '*'.repeat(ctx.session.code.length)
-    await ctx.answerCbQuery()
-    await ctx.editMessageText(`Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_conform_inlineKeyboard)
-  } catch (_) {
-    await ctx.answerCbQuery('Something went wrong.')
-  }
-})
-
-bot.action('2fa-confirm', async (ctx) => {
-  try {
-    const code = ctx.session.code
-    const secret = ctx.session.secret
-    const verified = twoFactor.verifyToken(secret, code)
-    const account = ownedAccountBy(ctx.from.id)
-    if (verified && verified.delta === 0) {
-      await ctx.answerCbQuery()
-      await ctx.editMessageText(`Address: ${account.address}
-Private key: ${account.privateKey}
-
-Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
+Please enter your 2FA code:`, Markup.inlineKeyboard([
         [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
       ]))
     } else {
-      await ctx.answerCbQuery('Invalid 2FA code.')
-    }
-  } catch (_) {
-    await ctx.answerCbQuery('Something went wrong.')
-  }
-})
-
-bot.action('2fa-set', async (ctx) => {
-  try {
-    const code = ctx.session.code
-    const secret = ctx.session.newSecret.secret
-    const verified = twoFactor.verifyToken(secret, code)
-    if (verified && verified.delta === 0) {
-      await ddbDocClient.send(new PutCommand({
-        TableName: 'wizardingpay',
-        Item: {
-          id: uid.getUniqueID(),
-          user_id: ctx.from.id,
-          category: 'telegram',
-          secret: secret
-        }
-      }))
+      const secret = queryUserRes.Items[0].secret
+      ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-code'}
       await ctx.answerCbQuery()
-      await ctx.editMessageText(`2FA is set up successfully.`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to Withdraw', 'withdraw')]
-      ]))
-    } else {
-      await ctx.answerCbQuery('Something went wrong.')
+      await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+            [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+          ])
+      )
     }
-  } catch (_) {
-    await ctx.answerCbQuery('Something went wrong.')
-  }
-})
-
-bot.action(/2fa-set-input-.*/, async (ctx) => {
-  try {
-    let code = ctx.match[0].split('-')[3]
-    if (code === 'back') {
-      ctx.session.code = ctx.session.code.slice(0, -1)
-    } else {
-      if (ctx.session.code.length >= 6) {
-        return
-      }
-      code = ctx.session.code + code
-      ctx.session = {...ctx.session, code: code}
-    }
-    const asterisks = '*'.repeat(ctx.session.code.length)
-    const newSecret = ctx.session.newSecret
-    await ctx.answerCbQuery()
-    await ctx.editMessageText(`
-You have not set up 2FA. Please scan the QR code to set up 2FA.
-
-Your WizardingPay 2FA secret: ${newSecret.secret}
-
-Please enter your 2FA code: ${asterisks + '-'.repeat(6 - asterisks.length)}`, _2fa_set_inlineKeyboard)
   } catch (_) {
     await ctx.answerCbQuery('Something went wrong.')
   }
@@ -427,6 +294,172 @@ bot.action('delete', async (ctx) => {
 
 bot.catch((error) => {
   console.log(error)
+})
+
+bot.on('message', async (ctx) => {
+  if (ctx.session?.intent === 'verify-2fa-code') {
+    try {
+      const code = ctx.message.text
+      const secret = ctx.session.secret
+      const verified = twoFactor.verifyToken(secret, code)
+      const account = ownedAccountBy(ctx.from.id)
+      if (verified && verified.delta === 0) {
+        ctx.session = {...ctx.session, intent: undefined}
+        await ctx.reply(`Address: ${account.address}
+Private key: ${account.privateKey}
+
+Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
+          [Markup.button.callback('🗑', 'delete')],
+          [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+        ]))
+      } else {
+        await ctx.reply('Invalid 2FA code.')
+      }
+    } catch (_) {
+      await ctx.reply('Something went wrong.')
+    }
+  }
+  else if (ctx.session?.intent === 'set-2fa-code') {
+    try {
+      const code = ctx.message.text
+      const secret = ctx.session.newSecret.secret
+      const verified = twoFactor.verifyToken(secret, code)
+      if (verified && verified.delta === 0) {
+        await ddbDocClient.send(new PutCommand({
+          TableName: 'wizardingpay',
+          Item: {
+            id: uid.getUniqueID(),
+            user_id: ctx.from.id,
+            category: 'telegram',
+            secret: secret
+          }
+        }))
+        ctx.session = {...ctx.session, intent: undefined}
+        await ctx.reply(`2FA is set up successfully.`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Withdraw', 'withdraw')]
+        ]))
+      } else {
+        await ctx.reply('Something went wrong.')
+      }
+    } catch (_) {
+      await ctx.reply('Something went wrong.')
+    }
+  }
+  else if (ctx.session?.intent === 'input-prize-amount') {
+    const amount = Number(ctx.message.text)
+    if (amount > 0) {
+      const token = ctx.session.balance_list[ctx.session.index]
+      const balance = token.balance || 0
+      const decimals = token.decimals || 18
+      
+      if (amount * 10 ** decimals <= balance) {
+        ctx.session = {...ctx.session, amount: amount, intent: 'input-prize-desc'}
+        const network = ctx.session.network
+        ctx.reply(`Network is ${network},
+Token is ${token.name},
+Amount is ${amount}.
+
+Please enter the prize description:
+      `, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Prize', 'prize')],
+        ]))
+      } else {
+        await ctx.reply(`You don't have enough ${token.symbol} to pay the prize. You ${token.symbol} balance is ${balance / (10 ** decimals)}.`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+        ]))
+      }
+    } else {
+      await ctx.reply('Invalid amount. Please try again.')
+    }
+  }
+  else if (ctx.session?.intent === 'input-prize-desc') {
+    const desc = ctx.message.text
+    if (desc.length > 0) {
+      ctx.session = {...ctx.session, desc: desc, intent: "input-prize-recipient"}
+      const network = ctx.session.network
+      ctx.reply(`Network is ${network},
+Token is ${ctx.session.balance_list[ctx.session.index].name},
+Amount is ${ctx.session.amount},
+Description is ${desc}.
+
+Please enter the recipient's id:
+      `, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Prize', 'prize')],
+        ]))
+    }
+  }
+  else if (ctx.session.intent === 'input-prize-recipient') {
+    const chat_id = ctx.message.text
+    if (chat_id.length > 0) {
+      ctx.session = {...ctx.session, chat_id: chat_id, intent: "input-prize-amount"}
+      const network = ctx.session.network
+      ctx.reply(`Network is ${network},
+Token is ${ctx.session.balance_list[ctx.session.index].name},
+Amount is ${ctx.session.amount},
+Description is ${ctx.session.desc},
+Recipient is ${chat_id}.
+`, Markup.inlineKeyboard([
+          [Markup.button.callback('Send', 'send-prize')],
+          [Markup.button.callback('« Back to Prize', 'prize')],
+        ]))
+    }
+  }
+})
+
+bot.action('send-prize', async (ctx) => {
+  try {
+    const network = ctx.session.network
+    const token = ctx.session.balance_list[ctx.session.index]
+    const amount = ctx.session.amount
+    const desc = ctx.session.desc
+    const chat_id = ctx.session.chat_id
+    try {
+      const res = await ctx.telegram.sendMessage(chat_id,`${desc}`, Markup.inlineKeyboard([
+        [Markup.button.callback('Snatch!', 'snatch')]
+      ]))
+      try {
+        await ddbDocClient.send(new PutCommand({
+          TableName: 'wizardingpay',
+          Item: {
+            id: uid.getUniqueID(),
+            chat_id: res.chat.id,
+            message_id: res.message_id,
+            network,
+            token: {
+              id: token.id,
+              name: token.name,
+              symbol: token.symbol,
+              decimals: token.decimals,
+              price: token.price,
+            },
+            amount,
+            desc,
+            status: 'pending',
+            record: []
+          }
+        }))
+        await ctx.answerCbQuery('Prize sent successfully.')
+        ctx.editMessageText(`Successfully sent a prize to ${chat_id}.`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Prize', 'prize')],
+        ]))
+      } catch (e) {
+        console.log(e)
+        await ctx.answerCbQuery('Prize saved failed.')
+        ctx.reply('Failed to save prize to dynamodb.')
+      }
+    } catch (e) {
+      await ctx.answerCbQuery('Something went wrong.')
+      ctx.reply(`Failed to send message to ${chat_id}. Please check if the id is correct. And make sure the bot is added to the recipient's chat.`)
+    }
+  } catch (_) {
+    await ctx.answerCbQuery('Something went wrong.')
+    await ctx.reply('Something went wrong.')
+  }
+})
+
+bot.action('snatch', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.reply(JSON.stringify(ctx.update))
 })
 
 exports.handler = async (event, context, callback) => {
