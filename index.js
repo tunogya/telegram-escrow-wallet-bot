@@ -1,5 +1,5 @@
 const {Telegraf, Markup, session} = require('telegraf');
-const {PutCommand, DynamoDBDocumentClient, QueryCommand} = require('@aws-sdk/lib-dynamodb');
+const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers');
@@ -38,6 +38,7 @@ const ownedAccountBy = (id) => {
 }
 
 bot.start(async (ctx) => {
+  ctx.session = {}
   await ctx.reply(`
 @WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
 
@@ -178,13 +179,13 @@ Choose a Token from the list below:
 
 bot.action(/send_prize_token_.*/, async (ctx) => {
   const index = ctx.match[0].split('_')[3]
-  ctx.session = {...ctx.session, index, intent: 'input-prize-amount'}
+  ctx.session = {...ctx.session, index, intent: 'input-prize-value'}
   const token = ctx.session.balance_list[index]
   const network = ctx.session.network
   ctx.editMessageText(`Network is ${network},
 Token is ${token.name}.
 
-Enter the amount to put into the prize.`, Markup.inlineKeyboard([
+Enter the token value to put into the prize.`, Markup.inlineKeyboard([
     [Markup.button.callback('« Back to Prize', 'prize')]
   ]))
 })
@@ -345,19 +346,18 @@ Delete this message immediately after you have copied the private key.`, Markup.
       await ctx.reply('Something went wrong.')
     }
   }
-  else if (ctx.session?.intent === 'input-prize-amount') {
-    const amount = Number(ctx.message.text)
-    if (amount > 0) {
+  else if (ctx.session?.intent === 'input-prize-value') {
+    const value = Number(ctx.message.text)
+    if (value > 0) {
       const token = ctx.session.balance_list[ctx.session.index]
       const balance = token.balance || 0
       const decimals = token.decimals || 18
       
-      if (amount * 10 ** decimals <= balance) {
-        ctx.session = {...ctx.session, amount: amount, intent: 'input-prize-desc'}
+      if (value * 10 ** decimals <= balance) {
+        ctx.session = {...ctx.session, value, intent: 'input-prize-desc'}
         const network = ctx.session.network
-        ctx.reply(`Network is ${network},
-Token is ${token.name},
-Amount is ${amount}.
+        ctx.reply(`Network: ${network},
+Value: ${ctx.session.value} ${ctx.session.balance_list[ctx.session.index].name},
 
 Please enter the prize description:
       `, Markup.inlineKeyboard([
@@ -369,7 +369,7 @@ Please enter the prize description:
         ]))
       }
     } else {
-      await ctx.reply('Invalid amount. Please try again.')
+      await ctx.reply('Invalid value. Please try again.')
     }
   }
   else if (ctx.session?.intent === 'input-prize-desc') {
@@ -377,10 +377,9 @@ Please enter the prize description:
     if (desc.length > 0) {
       ctx.session = {...ctx.session, desc: desc, intent: "input-prize-recipient"}
       const network = ctx.session.network
-      ctx.reply(`Network is ${network},
-Token is ${ctx.session.balance_list[ctx.session.index].name},
-Amount is ${ctx.session.amount},
-Description is ${desc}.
+      ctx.reply(`Network: ${network},
+Value: ${ctx.session.value} ${ctx.session.balance_list[ctx.session.index].name},
+Description: ${ctx.session.desc}.
 
 Please enter the recipient's id:
       `, Markup.inlineKeyboard([
@@ -391,17 +390,35 @@ Please enter the recipient's id:
   else if (ctx.session.intent === 'input-prize-recipient') {
     const chat_id = ctx.message.text
     if (chat_id.length > 0) {
-      ctx.session = {...ctx.session, chat_id: chat_id, intent: "input-prize-amount"}
+      ctx.session = {...ctx.session, chat_id, intent: "input-prize-quality"}
       const network = ctx.session.network
-      ctx.reply(`Network is ${network},
-Token is ${ctx.session.balance_list[ctx.session.index].name},
-Amount is ${ctx.session.amount},
-Description is ${ctx.session.desc},
-Recipient is ${chat_id}.
+      ctx.reply(`Network: ${network},
+Value: ${ctx.session.value} ${ctx.session.balance_list[ctx.session.index].name},
+Description: ${ctx.session.desc},
+Recipient: ${ctx.session.chat_id}.
+
+Please enter the quality of the prize:
 `, Markup.inlineKeyboard([
-          [Markup.button.callback('Send', 'send-prize')],
           [Markup.button.callback('« Back to Prize', 'prize')],
         ]))
+    }
+  }
+  else if (ctx.session?.intent === 'input-prize-quality') {
+    const quality = Number(ctx.message.text)
+    if (quality > 0) {
+      ctx.session = {...ctx.session, intent: undefined, quality}
+      const network = ctx.session.network
+      ctx.reply(`Network: ${network},
+Value: ${ctx.session.value} ${ctx.session.balance_list[ctx.session.index].name},
+Description: ${ctx.session.desc},
+Recipient: ${ctx.session.chat_id},
+Prize quality: ${quality}.
+`, Markup.inlineKeyboard([
+        [Markup.button.callback('Send', 'send-prize')],
+        [Markup.button.callback('« Back to Prize', 'prize')],
+      ]))
+    } else {
+      await ctx.reply('Invalid quality. Please try again.')
     }
   }
 })
@@ -410,9 +427,10 @@ bot.action('send-prize', async (ctx) => {
   try {
     const network = ctx.session.network
     const token = ctx.session.balance_list[ctx.session.index]
-    const amount = ctx.session.amount
+    const value = ctx.session.value
     const desc = ctx.session.desc
     const chat_id = ctx.session.chat_id
+    const quantity= ctx.session.quality
     try {
       const res = await ctx.telegram.sendMessage(chat_id,`${desc}`, Markup.inlineKeyboard([
         [Markup.button.callback('Snatch!', 'snatch')]
@@ -432,7 +450,8 @@ bot.action('send-prize', async (ctx) => {
               decimals: token.decimals,
               price: token.price,
             },
-            amount,
+            value,
+            quantity,
             desc,
             status: 'pending',
             record: []
@@ -443,7 +462,6 @@ bot.action('send-prize', async (ctx) => {
           [Markup.button.callback('« Back to Prize', 'prize')],
         ]))
       } catch (e) {
-        console.log(e)
         await ctx.answerCbQuery('Prize saved failed.')
         ctx.reply('Failed to save prize to dynamodb.')
       }
@@ -458,8 +476,64 @@ bot.action('send-prize', async (ctx) => {
 })
 
 bot.action('snatch', async (ctx) => {
-  await ctx.answerCbQuery()
-  ctx.reply(JSON.stringify(ctx.update))
+  try {
+    const queryPrizeRes = await ddbDocClient.send(new QueryCommand({
+      ExpressionAttributeNames: {'#chat_id': 'chat_id', '#message_id': 'message_id'},
+      TableName: 'wizardingpay',
+      IndexName: 'prize-index',
+      KeyConditionExpression: '#chat_id = :chat_id AND #message_id = :message_id',
+      ExpressionAttributeValues: {
+        ':chat_id': ctx.update.callback_query.message.chat.id,
+        ':message_id': ctx.update.callback_query.message.message_id,
+      },
+    }))
+    if (!queryPrizeRes || queryPrizeRes.Count === 0) {
+      ctx.answerCbQuery("Sorry, this Prize is not found.")
+      return
+    }
+    const prize = queryPrizeRes.Items[0]
+    if (prize.record.some(record => record.user_id === ctx.update.callback_query.from.id)) {
+      await ctx.answerCbQuery('You have already snatched this Prize!')
+      return
+    }
+    if (prize.status !== 'open') {
+      await ctx.answerCbQuery(`Sorry, you are late.`)
+      return
+    }
+    let status = "open", value = 0
+    if (prize.record.length + 1 >= prize.quantity) {
+      status = "pending"
+      if (prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0) > 0) {
+        value = prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)
+      }
+    } else {
+      value = ((prize.value - prize.record.reduce((acc, cur) => acc + cur.value, 0)) * Math.random()).toFixed(2)
+    }
+    try {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: 'wizardingpay',
+        Key: {id: prize.id},
+        UpdateExpression: 'set updated_at = :updated_at, #record = list_append(#record, :record), #status = :status',
+        ExpressionAttributeNames: {'#record': 'record', '#status': 'status'},
+        ExpressionAttributeValues: {
+          ':updated_at': new Date().getTime(),
+          ':record': [{
+            user_id: ctx.update.callback_query.from.id,
+            username: ctx.update.callback_query.from.username,
+            value,
+            created_at: new Date().getTime(),
+          }],
+          ':status': status,
+        }
+      }))
+      await ctx.answerCbQuery(`You have snatched ${value} ${prize.token.symbol}!`)
+      ctx.reply(`Congratulations! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value} ${prize.token.symbol}!`)
+    }catch (e) {
+      await ctx.answerCbQuery('Sorry, snatch failed.')
+    }
+  } catch (e) {
+    await ctx.answerCbQuery('Something went wrong.')
+  }
 })
 
 exports.handler = async (event, context, callback) => {
