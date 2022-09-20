@@ -1,10 +1,20 @@
 const {Telegraf, Markup, session} = require('telegraf');
-const {PutCommand, DynamoDBDocumentClient, QueryCommand, UpdateCommand, ScanCommand} = require('@aws-sdk/lib-dynamodb');
+const {
+  PutCommand,
+  DynamoDBDocumentClient,
+  QueryCommand,
+  UpdateCommand,
+  ScanCommand,
+  GetCommand
+} = require('@aws-sdk/lib-dynamodb');
 const {DynamoDBClient} = require('@aws-sdk/client-dynamodb');
 const {Snowflake} = require('nodejs-snowflake');
 const ethers = require('ethers');
 const twoFactor = require("node-2fa");
 const axios = require('axios');
+const freeTransferAbi = require("./abis/FreeTransfer.json");
+const erc20abi = require("./abis/erc20.json");
+const {isAddress} = require("ethers/lib/utils");
 
 const token = process.env.BOT_TOKEN
 if (token === undefined) {
@@ -30,6 +40,21 @@ const uid = new Snowflake({
   instance_id: 1,
 })
 
+const SCAN_URL = {
+  'bsc': 'https://bscscan.com',
+  'bsct': 'https://testnet.bscscan.com',
+}
+
+const NETWORK_URLS = {
+  'bsc': `https://bsc-dataseed.binance.org/`,
+  'bsct': 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+}
+
+const FREE_TRANSFER_ADDRESS = {
+  'bsc': '0x8d8e4d946ED4c818C9ace798C869C6F93cCF3df0',
+  'bsct': '0xA4Cd6C205cEF92aB066177207114B6831194F61f',
+}
+
 const ownedAccountBy = (id) => {
   const node = ethers.utils.HDNode.fromMnemonic(mnemonic)
   const session = ethers.BigNumber.from(id).div(ethers.BigNumber.from('0x80000000')).toNumber()
@@ -46,14 +71,13 @@ Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay)
 `, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback('💰 My Wallet', 'my_wallet')],
+          [Markup.button.callback('💰 My Wallet', 'myWallet')],
           [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
         ])
       }
   )
 })
 
-// back to menu
 bot.action('menu', async (ctx) => {
   await ctx.answerCbQuery()
   await ctx.editMessageText(`
@@ -63,14 +87,14 @@ Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay)
 `, {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback('💰 My Wallet', 'my_wallet')],
+          [Markup.button.callback('💰 My Wallet', 'myWallet')],
           [Markup.button.url('Support', 'https://www.wakanda-labs.com')]
         ])
       }
   )
 })
 
-bot.action('my_wallet', async (ctx) => {
+bot.action('myWallet', async (ctx) => {
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   try {
     const req = await axios({
@@ -110,7 +134,7 @@ Error to fetch your balance, you can try again later.`, {
 bot.action('cheques', async (ctx) => {
   await ctx.answerCbQuery()
   await ctx.editMessageText(`Sorry, all bot operations are unavailable for your region.`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back to My Wallet', 'my_wallet')],
+    [Markup.button.callback('« Back to My Wallet', 'myWallet')],
   ]))
 })
 
@@ -120,14 +144,14 @@ bot.action('prize', async (ctx) => {
 Next, you will only see the network and tokens for which the account was activated.`, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback('Send', 'send_prize_choose_network')],
-      [Markup.button.callback('History', 'prize_history')],
-      [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+      [Markup.button.callback('Send', 'sendPrizeChooseNetwork')],
+      [Markup.button.callback('History', 'prizeHistory')],
+      [Markup.button.callback('« Back to My Wallet', 'myWallet')]
     ])
   })
 })
 
-bot.action('prize_history', async (ctx) => {
+bot.action('prizeHistory', async (ctx) => {
   const result = await ddbDocClient.send(new ScanCommand({
     TableName: 'wizardingpay',
     IndexName: 'prize-index',
@@ -149,7 +173,7 @@ bot.action('prize_history', async (ctx) => {
     return
   }
   const buttons = result.Items.map((item) => {
-    return [Markup.button.callback(`${item.value} ${item.token.symbol} to "${item.chat.title || item.chat.username || item.chat.id}"`, `prize_${item.id}`)]
+    return [Markup.button.callback(`${item.value} ${item.token.symbol}(${item.network}) to "${item.chat.title || item.chat.username || item.chat.id}"`, `prize_${item.id}`)]
   })
   
   await ctx.answerCbQuery()
@@ -159,7 +183,195 @@ bot.action('prize_history', async (ctx) => {
   ]))
 })
 
-bot.action('send_prize_choose_network', async (ctx) => {
+bot.action(/prize_(.*)/, async (ctx) => {
+  const id = ctx.match[1]
+  try {
+    const result = await ddbDocClient.send(new GetCommand({
+      TableName: 'wizardingpay',
+      Key: {
+        id: BigInt(id),
+      },
+    }))
+    const item = result.Item
+    ctx.editMessageText(`*Prize*: ${item?.value} ${item?.token?.symbol}(${item?.network}) to "${item?.chat?.title || item?.chat?.username || item?.chat?.id}"
+*token address*: ${item?.token?.id || 'unknown'}
+*total value*: ${(item.value * item.token.price).toFixed(2) || 'unknown'} USD
+*created at*: ${new Date(item?.created_at).toLocaleString() || 'unknown'}
+*status*: ${item?.status || 'unknown'}
+${item?.tx ? `*tx*: [${item.tx}](${SCAN_URL[item.network]}/tx/${item.tx})` : ''}
+*left*: ${item.value - item.record.reduce((acc, cur) => acc + cur.value, 0)} ${item?.token?.symbol}
+*history*:
+${item.record.map((record) => `- ${record.username || record.username} snatched ${record.value} ${item?.token?.symbol}`).join(';\n')}
+
+What do you want to do with the Prize?
+    `, {
+      parse_mode: 'Markdown',
+     ...Markup.inlineKeyboard([
+       [Markup.button.callback('Pending', `pendingPrize_${id}`, item.status === 'pending' || item.status === 'processing' || item.status === 'close'),
+         Markup.button.callback('Liquidate', `liquidatePrize_${id}`, item.status === 'open' || item.status === 'processing' || item.status === 'close'),
+         Markup.button.callback('Close', `closePrize_${id}`, item.status === 'close')],
+       [Markup.button.callback('« Back to Prize History', 'prizeHistory')],
+     ])
+    })
+  } catch (e) {
+    ctx.answerCbQuery("Fetch Prize failed, please try again later.")
+  }
+})
+
+bot.action(/pendingPrize_(.*)/, async (ctx) => {
+  const id = ctx.match[1]
+  try {
+    const result = await ddbDocClient.send(new GetCommand({
+      TableName: 'wizardingpay',
+      Key: {
+        id: BigInt(id),
+      },
+    }))
+    const item = result.Item
+    if (item.status === 'open') {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: 'wizardingpay',
+        Key: {
+          id: BigInt(id),
+        },
+        UpdateExpression: 'set #s = :s',
+        ExpressionAttributeNames: {
+          '#s': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':s': 'pending',
+        },
+      }))
+      await ctx.answerCbQuery()
+      ctx.editMessageText(`Prize ${id} is pending now.`, Markup.inlineKeyboard([
+        [Markup.button.callback('Liquidate', `liquidatePrize_${id}`),
+          Markup.button.callback('Close', `closePrize_${id}`)],
+        [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+      ]))
+    } else {
+      ctx.answerCbQuery("Prize is not open, please try again later.")
+    }
+  } catch (e) {
+    ctx.answerCbQuery("Fetch Prize failed, please try again later.")
+  }
+})
+
+bot.action(/liquidatePrize_(.*)/, async (ctx) => {
+  const id = ctx.match[1]
+  try {
+    const result = await ddbDocClient.send(new GetCommand({
+      TableName: 'wizardingpay',
+      Key: {
+        id: BigInt(id),
+      },
+    }))
+    const item = result.Item
+    if (item.status === 'pending') {
+      const decimals = item.token.decimals
+      const pendingList = item.record.filter(r => r.value > 0)
+      const addressList = pendingList.map(r => ownedAccountBy(r.user_id).address)
+      const amountList = pendingList.map(r => (r.value * 10 ** decimals).toString())
+      try {
+        const privateKey = ownedAccountBy(ctx.from.id).privateKey
+        const provider = new ethers.providers.JsonRpcProvider(NETWORK_URLS[item.network])
+        const wallet = new ethers.Wallet(privateKey, provider)
+        const providerWithSinger = wallet.connect(provider)
+        const freeTransferContract = new ethers.Contract(FREE_TRANSFER_ADDRESS[item.network], freeTransferAbi, providerWithSinger)
+        const tokenContract = new ethers.Contract(item.token.id, erc20abi, providerWithSinger)
+        const balance = await tokenContract.balanceOf(wallet.address)
+        const totalAmount = amountList.reduce((acc, cur) => acc + cur, 0)
+        if (balance < totalAmount) {
+          ctx.answerCbQuery(`Insufficient balance, please try again later.`)
+          return
+        }
+        const approved = await tokenContract.allowance(wallet.address, FREE_TRANSFER_ADDRESS[item.network])
+        if (approved < totalAmount) {
+          ctx.editMessageText(`You need to approve the transfer first.`, Markup.inlineKeyboard([
+              [Markup.button.callback('Approve', `approvePrize_${item.network}`)],
+              [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+          ]))
+          return
+        }
+        const res = await freeTransferContract.transfer(
+            addressList,
+            amountList,
+            item.token.id, {
+              gasLimit: 1000000,
+            }
+        )
+        try {
+          await ddbDocClient.send(new UpdateCommand({
+            TableName: 'wizardingpay',
+            Key: {
+              id: BigInt(id),
+            },
+            UpdateExpression: 'set #s = :s, #tx = :tx',
+            ExpressionAttributeNames: {
+              '#s': 'status',
+              '#tx': 'tx',
+            },
+            ExpressionAttributeValues: {
+              ':s': 'processing',
+              ':tx': res.hash,
+            },
+          }))
+        } catch (e) {
+          ctx.answerCbQuery('Update Prize status failed')
+          ctx.reply('Update Prize status failed')
+        }
+        ctx.editMessageText(`Prize ${id} is processing now. Check out Tx: ${SCAN_URL[item.network]}/tx/${res.hash}`, Markup.inlineKeyboard([
+          [Markup.button.callback('Close', `closePrize_${id}`, item.status === 'close')],
+          [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+        ]))
+      } catch (e) {
+        console.log(e)
+        ctx.answerCbQuery("Liquidate Prize failed, please try again later.")
+      }
+    } else {
+      ctx.answerCbQuery("Prize is not open, please try again later.")
+    }
+  } catch (e) {
+    console.log(e)
+    ctx.answerCbQuery("Fetch Prize failed, please try again later.")
+  }
+})
+
+bot.action(/closePrize_(.*)/, async (ctx) => {
+  const id = ctx.match[1]
+  try {
+    const result = await ddbDocClient.send(new GetCommand({
+      TableName: 'wizardingpay',
+      Key: {
+        id: BigInt(id),
+      },
+    }))
+    const item = result.Item
+    if (item.status !== 'close') {
+      await ddbDocClient.send(new UpdateCommand({
+        TableName: 'wizardingpay',
+        Key: {
+          id: BigInt(id),
+        },
+        UpdateExpression: 'set #s = :s',
+        ExpressionAttributeNames: {
+          '#s': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':s': 'close',
+        },
+      }))
+      ctx.editMessageText(`Prize ${id} is closed now.`, Markup.inlineKeyboard([
+        [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+      ]))
+    } else {
+      ctx.answerCbQuery("Prize had closed.")
+    }
+  } catch (e) {
+    ctx.answerCbQuery("Fetch Prize failed, please try again later.")
+  }
+})
+
+bot.action('sendPrizeChooseNetwork', async (ctx) => {
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   try {
     const req = await axios.get(`https://api.debank.com/user/addr?addr=${address}`)
@@ -171,7 +383,7 @@ bot.action('send_prize_choose_network', async (ctx) => {
       return
     }
     await ctx.answerCbQuery()
-    const networks = used_chains.map((chain) => [Markup.button.callback(chain.toUpperCase(), `send_prize_network_${chain}`)])
+    const networks = used_chains.map((chain) => [Markup.button.callback(chain.toUpperCase(), `sendPrizeNetwork_${chain}`)])
     await ctx.editMessageText('Choose a network from the list below:', Markup.inlineKeyboard([
       ...networks, [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
@@ -180,13 +392,13 @@ bot.action('send_prize_choose_network', async (ctx) => {
   }
 })
 
-bot.action(/send_prize_network_.*/, async (ctx) => {
-  const network = ctx.match[0].split('_')[3]
+bot.action(/sendPrizeNetwork_.*/, async (ctx) => {
+  const network = ctx.match[0].split('_')[1]
   ctx.session = {...ctx.session, network}
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
   try {
     const req = await axios(`https://api.debank.com/token/balance_list?user_addr=${address}&is_all=false&chain=${network}`)
-    const balance_list = req.data.data
+    const balance_list = req.data.data.filter((item) => isAddress(item.id))
     if (balance_list.length === 0) {
       await ctx.answerCbQuery('You have not used any token yet.')
       await ctx.editMessageText('You have not used any token yet.', Markup.inlineKeyboard([
@@ -195,23 +407,23 @@ bot.action(/send_prize_network_.*/, async (ctx) => {
       return
     }
     ctx.session = {...ctx.session, balance_list}
-    const tokens = balance_list.map((token, index) => [Markup.button.callback(token.symbol, `send_prize_token_${index}`)])
+    const tokensButton = balance_list.map((token, index) => [Markup.button.callback(token.symbol, `sendPrizeToken_${index}`)])
     await ctx.answerCbQuery()
     ctx.editMessageText(`
 Network is ${network}.
 
-Choose a Token from the list below:
+Choose an ERC20 Token from the list below:
 `, Markup.inlineKeyboard([
-      ...tokens, [Markup.button.callback('« Back to Prize', 'prize')]
+      ...tokensButton, [Markup.button.callback('« Back to Prize', 'prize')]
     ]))
   } catch (e) {
     await ctx.answerCbQuery('Error to fetch your balance, you can try again later.')
   }
 })
 
-bot.action(/send_prize_token_.*/, async (ctx) => {
-  const index = ctx.match[0].split('_')[3]
-  ctx.session = {...ctx.session, index, intent: 'input-prize-value'}
+bot.action(/sendPrizeToken_.*/, async (ctx) => {
+  const index = ctx.match[0].split('_')[1]
+  ctx.session = {...ctx.session, index, intent: 'inputPrizeValue'}
   const token = ctx.session.balance_list[index]
   const network = ctx.session.network
   ctx.editMessageText(`Network is ${network},
@@ -235,15 +447,15 @@ You can deposit crypto to this address.
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-              [Markup.button.callback('QR Code', 'deposit_qrcode')],
-              [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+              [Markup.button.callback('QR Code', 'depositQRCode')],
+              [Markup.button.callback('« Back to My Wallet', 'myWallet')]
             ]
         )
       }
   )
 })
 
-bot.action('deposit_qrcode', async (ctx) => {
+bot.action('depositQRCode', async (ctx) => {
   try {
     const address = ownedAccountBy(ctx.update.callback_query.from.id).address
     await ctx.answerCbQuery()
@@ -283,14 +495,14 @@ bot.action('withdraw', async (ctx) => {
 Your WizardingPay 2FA secret: ${newSecret.secret}
 
 Please enter your 2FA code:`, Markup.inlineKeyboard([
-        [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+        [Markup.button.callback('« Back to My Wallet', 'myWallet')]
       ]))
     } else {
       const secret = queryUserRes.Items[0].secret
       ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-code'}
       await ctx.answerCbQuery()
       await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
-            [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+            [Markup.button.callback('« Back to My Wallet', 'myWallet')]
           ])
       )
     }
@@ -332,9 +544,9 @@ bot.action('send-prize', async (ctx) => {
     const value = ctx.session.value
     const desc = ctx.session.desc
     const chat_id = ctx.session.chat_id
-    const quantity= ctx.session.quality
+    const quantity = ctx.session.quality
     try {
-      const res = await ctx.telegram.sendMessage(chat_id,`${desc}`, Markup.inlineKeyboard([
+      const res = await ctx.telegram.sendMessage(chat_id, `${desc}`, Markup.inlineKeyboard([
         [Markup.button.callback('Snatch!', 'snatch')]
       ]))
       try {
@@ -357,7 +569,8 @@ bot.action('send-prize', async (ctx) => {
             quantity,
             desc,
             status: 'open',
-            record: []
+            record: [],
+            created_at: new Date().toISOString(),
           }
         }))
         await ctx.answerCbQuery('Prize sent successfully.')
@@ -416,10 +629,9 @@ bot.action('snatch', async (ctx) => {
       await ddbDocClient.send(new UpdateCommand({
         TableName: 'wizardingpay',
         Key: {id: prize.id},
-        UpdateExpression: 'set updated_at = :updated_at, #record = list_append(#record, :record), #status = :status',
+        UpdateExpression: 'set #record = list_append(#record, :record), #status = :status',
         ExpressionAttributeNames: {'#record': 'record', '#status': 'status'},
         ExpressionAttributeValues: {
-          ':updated_at': new Date().getTime(),
           ':record': [{
             user_id: ctx.update.callback_query.from.id,
             username: ctx.update.callback_query.from.username,
@@ -431,7 +643,7 @@ bot.action('snatch', async (ctx) => {
       }))
       await ctx.answerCbQuery(`You have snatched ${value} ${prize.token.symbol}!`)
       ctx.reply(`Congratulations! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value} ${prize.token.symbol}!`)
-    }catch (e) {
+    } catch (e) {
       await ctx.answerCbQuery('Sorry, snatch failed.')
     }
   } catch (e) {
@@ -453,7 +665,7 @@ Private key: ${account.privateKey}
 
 Delete this message immediately after you have copied the private key.`, Markup.inlineKeyboard([
           [Markup.button.callback('🗑', 'delete')],
-          [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+          [Markup.button.callback('« Back to My Wallet', 'myWallet')]
         ]))
       } else {
         await ctx.reply('Invalid 2FA code.')
@@ -461,8 +673,7 @@ Delete this message immediately after you have copied the private key.`, Markup.
     } catch (_) {
       await ctx.reply('Something went wrong.')
     }
-  }
-  else if (ctx.session?.intent === 'set-2fa-code') {
+  } else if (ctx.session?.intent === 'set-2fa-code') {
     try {
       const code = ctx.message.text
       const secret = ctx.session.newSecret.secret
@@ -487,8 +698,7 @@ Delete this message immediately after you have copied the private key.`, Markup.
     } catch (_) {
       await ctx.reply('Something went wrong.')
     }
-  }
-  else if (ctx.session?.intent === 'input-prize-value') {
+  } else if (ctx.session?.intent === 'inputPrizeValue') {
     const value = Number(ctx.message.text)
     if (value > 0) {
       const token = ctx.session.balance_list[ctx.session.index]
@@ -507,14 +717,13 @@ Please enter the prize description:
         ]))
       } else {
         await ctx.reply(`You don't have enough ${token.symbol} to pay the prize. You ${token.symbol} balance is ${balance / (10 ** decimals)}.`, Markup.inlineKeyboard([
-          [Markup.button.callback('« Back to My Wallet', 'my_wallet')]
+          [Markup.button.callback('« Back to My Wallet', 'myWallet')]
         ]))
       }
     } else {
       await ctx.reply('Invalid value. Please try again.')
     }
-  }
-  else if (ctx.session?.intent === 'input-prize-desc') {
+  } else if (ctx.session?.intent === 'input-prize-desc') {
     const desc = ctx.message.text
     if (desc.length > 0) {
       ctx.session = {...ctx.session, desc: desc, intent: "input-prize-recipient"}
@@ -528,8 +737,7 @@ Please enter the recipient's id:
         [Markup.button.callback('« Back to Prize', 'prize')],
       ]))
     }
-  }
-  else if (ctx.session.intent === 'input-prize-recipient') {
+  } else if (ctx.session.intent === 'input-prize-recipient') {
     const chat_id = ctx.message.text
     if (chat_id.length > 0) {
       ctx.session = {...ctx.session, chat_id, intent: "input-prize-quality"}
@@ -544,8 +752,7 @@ Please enter the quality of the prize:
         [Markup.button.callback('« Back to Prize', 'prize')],
       ]))
     }
-  }
-  else if (ctx.session?.intent === 'input-prize-quality') {
+  } else if (ctx.session?.intent === 'input-prize-quality') {
     const quality = Number(ctx.message.text)
     if (quality > 0) {
       ctx.session = {...ctx.session, intent: undefined, quality}
