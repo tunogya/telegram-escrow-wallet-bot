@@ -110,8 +110,9 @@ Total USD Value: $${balance.toFixed(2)}`,
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-            [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
+            [Markup.button.callback('➕ Deposit', 'deposit')],
+            [Markup.button.callback('➖ Withdraw', 'withdraw')],
+            [Markup.button.callback('💎 Prize', 'prize')],
             [Markup.button.callback('« Back to Menu', 'menu')]
           ])
         }
@@ -123,19 +124,13 @@ Total USD Value: $${balance.toFixed(2)}`,
 Error to fetch your balance, you can try again later.`, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
-        [Markup.button.callback('🎫 Cheques', 'cheques'), Markup.button.callback('💎 Prize', 'prize')],
+        [Markup.button.callback('➕ Deposit', 'deposit')],
+        [Markup.button.callback('➖ Withdraw', 'withdraw')],
+        [Markup.button.callback('💎 Prize', 'prize')],
         [Markup.button.callback('« Back to Menu', 'menu')]
       ])
     })
   }
-})
-
-bot.action('cheques', async (ctx) => {
-  await ctx.answerCbQuery()
-  await ctx.editMessageText(`Sorry, all bot operations are unavailable for your region.`, Markup.inlineKeyboard([
-    [Markup.button.callback('« Back to My Wallet', 'myWallet')],
-  ]))
 })
 
 bot.action('prize', async (ctx) => {
@@ -319,7 +314,7 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
           ctx.answerCbQuery('Update Prize status failed')
           ctx.reply('Update Prize status failed')
         }
-        ctx.editMessageText(`Prize ${id} is processing now. Check out Tx: ${SCAN_URL[item.network]}/tx/${res.hash}`, Markup.inlineKeyboard([
+        ctx.editMessageText(`Prize ${item?.value} ${item?.token?.symbol}(${item?.network}) to "${item?.chat?.title || item?.chat?.username || item?.chat?.id}" is processing now. Check out Tx: ${SCAN_URL[item.network]}/tx/${res.hash}`, Markup.inlineKeyboard([
           [Markup.button.callback('Close', `closePrize_${id}`, item.status === 'close')],
           [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
         ]))
