@@ -495,20 +495,19 @@ bot.action('withdraw', async (ctx) => {
         name: "WizardingPay",
         account: 'telegram:' + ctx.update.callback_query.from.username
       });
-      ctx.session = {...ctx.session, newSecret: newSecret, intent: 'set-2fa-code'}
+      ctx.session = {...ctx.session, newSecret: newSecret, intent: 'setMfaCode'}
       await ctx.answerCbQuery()
-      await ctx.editMessageText(`You have not set up 2FA. Please scan the QR code to set up 2FA.
-    
-Your WizardingPay 2FA secret: ${newSecret.secret}
+      await ctx.editMessageText(`Secret: ${newSecret.secret}
 
-Please enter your 2FA code:`, Markup.inlineKeyboard([
+You have not set up any MFA. Please set this secret in your MFA device and type the authentication code below:`, Markup.inlineKeyboard([
+        [Markup.button.callback('QR Code', 'MfaQrCode')],
         [Markup.button.callback('« Back to My Wallet', 'myWallet')]
       ]))
     } else {
       const secret = queryUserRes.Items[0].secret
       ctx.session = {...ctx.session, secret: secret, intent: 'verify-2fa-code'}
       await ctx.answerCbQuery()
-      await ctx.editMessageText(`Please enter your 2FA code:`, Markup.inlineKeyboard([
+      await ctx.editMessageText(`Your account is secured using multi-factor authentication (MFA). To finish showing privateKey, turn on or view your MFA device and type the authentication code below:`, Markup.inlineKeyboard([
             [Markup.button.callback('« Back to My Wallet', 'myWallet')]
           ])
       )
@@ -518,7 +517,7 @@ Please enter your 2FA code:`, Markup.inlineKeyboard([
   }
 })
 
-bot.action('2fa-qr-code', async (ctx) => {
+bot.action('MfaQrCode', async (ctx) => {
   try {
     const newSecret = ctx.session.newSecret
     await ctx.answerCbQuery()
@@ -544,7 +543,7 @@ bot.action('delete', async (ctx) => {
   }
 })
 
-bot.action('send-prize', async (ctx) => {
+bot.action('submitPrize', async (ctx) => {
   try {
     const network = ctx.session.network
     const token = ctx.session.balance_list[ctx.session.index]
@@ -680,7 +679,7 @@ Delete this message immediately after you have copied the private key.`, Markup.
     } catch (_) {
       await ctx.reply('Something went wrong.')
     }
-  } else if (ctx.session?.intent === 'set-2fa-code') {
+  } else if (ctx.session?.intent === 'setMfaCode') {
     try {
       const code = ctx.message.text
       const secret = ctx.session.newSecret.secret
@@ -770,7 +769,7 @@ Description: ${ctx.session.desc},
 Recipient: ${ctx.session.chat_id},
 Prize quality: ${quality}.
 `, Markup.inlineKeyboard([
-        [Markup.button.callback('Send', 'send-prize')],
+        [Markup.button.callback('Submit', 'submitPrize')],
         [Markup.button.callback('« Back to Prize', 'prize')],
       ]))
     } else {
