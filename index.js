@@ -576,7 +576,7 @@ bot.action('submitPrize', async (ctx) => {
             desc,
             status: 'open',
             record: [],
-            created_at: new Date().toISOString(),
+            created_at: new Date().getTime(),
           }
         }))
         await ctx.answerCbQuery('Prize sent successfully.')
