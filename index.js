@@ -110,8 +110,7 @@ Total USD Value: $${balance.toFixed(2)}`,
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.callback('➕ Deposit', 'deposit')],
-            [Markup.button.callback('➖ Withdraw', 'withdraw')],
+            [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
             [Markup.button.callback('💎 Prize', 'prize')],
             [Markup.button.callback('« Back to Menu', 'menu')]
           ])
@@ -124,8 +123,7 @@ Total USD Value: $${balance.toFixed(2)}`,
 Error to fetch your balance, you can try again later.`, {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Deposit', 'deposit')],
-        [Markup.button.callback('➖ Withdraw', 'withdraw')],
+        [Markup.button.callback('➕ Deposit', 'deposit'), Markup.button.callback('➖ Withdraw', 'withdraw')],
         [Markup.button.callback('💎 Prize', 'prize')],
         [Markup.button.callback('« Back to Menu', 'menu')]
       ])
@@ -786,7 +784,7 @@ exports.handler = async (event, context, callback) => {
   });
 };
 
-bot.launch().then(() => console.log('Bot launched...'))
+// bot.launch().then(() => console.log('Bot launched...'))
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'))
