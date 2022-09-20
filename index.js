@@ -206,12 +206,12 @@ ${item.record.map((record) => `- ${record.username || record.username} snatched 
 What do you want to do with the Prize?
     `, {
       parse_mode: 'Markdown',
-     ...Markup.inlineKeyboard([
-       [Markup.button.callback('Pending', `pendingPrize_${id}`, item.status === 'pending' || item.status === 'processing' || item.status === 'close'),
-         Markup.button.callback('Liquidate', `liquidatePrize_${id}`, item.status === 'open' || item.status === 'processing' || item.status === 'close'),
-         Markup.button.callback('Close', `closePrize_${id}`, item.status === 'close')],
-       [Markup.button.callback('« Back to Prize History', 'prizeHistory')],
-     ])
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('Pending', `pendingPrize_${id}`, item.status === 'pending' || item.status === 'processing' || item.status === 'close'),
+          Markup.button.callback('Liquidate', `liquidatePrize_${id}`, item.status === 'open' || item.status === 'processing' || item.status === 'close'),
+          Markup.button.callback('Close', `closePrize_${id}`, item.status === 'close')],
+        [Markup.button.callback('« Back to Prize History', 'prizeHistory')],
+      ])
     })
   } catch (e) {
     ctx.answerCbQuery("Fetch Prize failed, please try again later.")
@@ -287,8 +287,8 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
         const approved = await tokenContract.allowance(wallet.address, FREE_TRANSFER_ADDRESS[item.network])
         if (approved < totalAmount) {
           ctx.editMessageText(`You need to approve the transfer first.`, Markup.inlineKeyboard([
-              [Markup.button.callback('Approve', `approvePrize_${item.network}`)],
-              [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+            [Markup.button.callback('Approve', `approvePrize_${item.network}`)],
+            [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
           ]))
           return
         }
@@ -396,6 +396,13 @@ bot.action(/sendPrizeNetwork_.*/, async (ctx) => {
   const network = ctx.match[0].split('_')[1]
   ctx.session = {...ctx.session, network}
   const address = ownedAccountBy(ctx.update.callback_query.from.id).address
+  if (FREE_TRANSFER_ADDRESS[network] === undefined) {
+    await ctx.answerCbQuery('Network is not supported yet.')
+    ctx.editMessageText('Network is not supported yet.', Markup.inlineKeyboard([
+      [Markup.button.callback('« Back to Prize', 'prize')],
+    ]))
+    return
+  }
   try {
     const req = await axios(`https://api.debank.com/token/balance_list?user_addr=${address}&is_all=false&chain=${network}`)
     const balance_list = req.data.data.filter((item) => isAddress(item.id))
