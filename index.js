@@ -42,17 +42,14 @@ const uid = new Snowflake({
 
 const SCAN_URL = {
   'bsc': 'https://bscscan.com',
-  'bsct': 'https://testnet.bscscan.com',
 }
 
 const NETWORK_URLS = {
   'bsc': `https://bsc-dataseed.binance.org/`,
-  'bsct': 'https://data-seed-prebsc-1-s1.binance.org:8545/',
 }
 
 const FREE_TRANSFER_ADDRESS = {
   'bsc': '0x8d8e4d946ED4c818C9ace798C869C6F93cCF3df0',
-  'bsct': '0xA4Cd6C205cEF92aB066177207114B6831194F61f',
 }
 
 const ownedAccountBy = (id) => {
@@ -289,7 +286,7 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
             addressList,
             amountList,
             item.token.id, {
-              gasLimit: 1000000,
+              gasLimit: 30000 * addressList.length,
             }
         )
         try {
