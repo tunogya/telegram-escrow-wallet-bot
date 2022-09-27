@@ -759,7 +759,7 @@ Please enter the quality of the prize:
     }
   } else if (ctx.session?.intent === 'input-prize-quality') {
     const quality = Number(ctx.message.text)
-    if (quality > 0) {
+    if (quality > 0 && quality <= 3000) {
       ctx.session = {...ctx.session, intent: undefined, quality}
       const network = ctx.session.network
       ctx.reply(`Network: ${network},
@@ -772,7 +772,7 @@ Prize quality: ${quality}.
         [Markup.button.callback('« Back to Prize', 'prize')],
       ]))
     } else {
-      await ctx.reply('Invalid quality. Please try again.')
+      await ctx.reply('Invalid quality. Please try again. The quality should be between 1 and 3000.')
     }
   }
 })
