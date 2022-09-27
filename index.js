@@ -261,6 +261,15 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
       const pendingList = item.record.filter(r => r.value > 0)
       const addressList = pendingList.map(r => ownedAccountBy(r.user_id).address)
       const amountList = pendingList.map(r => (r.value * 10 ** decimals).toString())
+      
+      if (addressList > 3000) {
+        ctx.answerCbQuery("Too many pending users, can't liquidate now.")
+        ctx.editMessageText(`Too many pending users, can't liquidate now.`, Markup.inlineKeyboard([
+          [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
+        ]))
+        return
+      }
+      
       try {
         const privateKey = ownedAccountBy(ctx.from.id).privateKey
         const provider = new ethers.providers.JsonRpcProvider(NETWORK_URLS[item.network])
