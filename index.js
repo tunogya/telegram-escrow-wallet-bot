@@ -329,7 +329,7 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
         ctx.answerCbQuery("Liquidate Prize failed, please try again later.")
       }
     } else {
-      ctx.answerCbQuery("Prize is not open, please try again later.")
+      ctx.answerCbQuery("Prize is not pending, please try again later.")
     }
   } catch (e) {
     console.log(e)
@@ -364,7 +364,7 @@ bot.action(/closePrize_(.*)/, async (ctx) => {
           ':s': 'closed',
         },
       }))
-      ctx.editMessageText(`⚫️ Prize ${item?.value} ${item?.token?.symbol} to "${item?.chat?.title}" is closed now.`, Markup.inlineKeyboard([
+      ctx.editMessageText(`⚫️ Prize ${item.value} ${item.token.symbol} to "${item.chat.title}" is closed now.`, Markup.inlineKeyboard([
         [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
       ]))
     } else {
