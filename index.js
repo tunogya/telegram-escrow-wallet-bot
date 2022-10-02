@@ -228,7 +228,7 @@ bot.action(/pendingPrize_(.*)/, async (ctx) => {
       await ctx.answerCbQuery()
       ctx.editMessageText(`🟡 Prize ${item?.value} ${item?.token?.symbol} to "${item?.chat?.title}" is pending now.`, Markup.inlineKeyboard([
         [Markup.button.callback('🔴 Liquidate', `liquidatePrize_${chat_id}_${message_id}`)],
-        Markup.button.callback('⚫️️ Close', `closePrize_${chat_id}_${message_id}`),
+        [Markup.button.callback('⚫️️ Close', `closePrize_${chat_id}_${message_id}`)],
         [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
       ]))
     } else {
@@ -255,7 +255,7 @@ bot.action(/liquidatePrize_(.*)/, async (ctx) => {
       const decimals = item.token.decimals
       const pendingList = item.record.filter(r => r.value > 0)
       const addressList = pendingList.map(r => ownedAccountBy(r.user_id, 0).address)
-      const amountList = pendingList.map(r => (new BigNumber.from(r.value).mul(BigNumber.from(10).pow(decimals))))
+      const amountList = pendingList.map(r => (new BigNumber.from(r.value * 100).mul(BigNumber.from(10).pow(decimals - 2))))
       
       if (addressList.length > NETWORK_INFO[item.network].maxTx) {
         ctx.answerCbQuery("Too many pending users, can't liquidate now.")
@@ -364,6 +364,7 @@ bot.action(/closePrize_(.*)/, async (ctx) => {
           ':s': 'closed',
         },
       }))
+      ctx.answerCbQuery()
       ctx.editMessageText(`⚫️ Prize ${item.value} ${item.token.symbol} to "${item.chat.title}" is closed now.`, Markup.inlineKeyboard([
         [Markup.button.callback('« Back to Prize History', 'prizeHistory')]
       ]))
@@ -593,7 +594,7 @@ bot.action('snatch', async (ctx) => {
         }
       }))
       await ctx.answerCbQuery(`You have snatched ${value}!`)
-      ctx.reply(`Congratulations! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value}!`)
+      ctx.reply(`🎉! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value}!`)
     } catch (e) {
       await ctx.answerCbQuery('Sorry, snatch failed.')
     }
