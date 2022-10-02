@@ -521,7 +521,7 @@ bot.action('submitPrize', async (ctx) => {
             status: 'open',
             record: [],
             created_at: Math.floor(Date.now() / 1000),
-            ttl: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365 // 1 year
+            ttl: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
           }
         }))
         await ctx.answerCbQuery('Prize sent successfully.')
