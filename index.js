@@ -594,7 +594,7 @@ bot.action('snatch', async (ctx) => {
         }
       }))
       await ctx.answerCbQuery(`You have snatched ${value}!`)
-      ctx.reply(`🎉! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value}!`)
+      ctx.reply(`🎉! ${ctx.update.callback_query.from.username || ctx.update.callback_query.from.id} have snatched ${value} ${prize.token.symbol}!`)
     } catch (e) {
       await ctx.answerCbQuery('Sorry, snatch failed.')
     }
