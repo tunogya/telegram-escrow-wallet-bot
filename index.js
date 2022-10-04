@@ -71,7 +71,7 @@ const ownedAccountBy = (id, sort) => {
   return node.derivePath(`m/44'/60'/${sort}'/${session}/${index}`)
 }
 
-const replyWithMenu = async (ctx) => {
+bot.start(async (ctx) => {
   ctx.session = {}
   await ctx.reply(`
 @WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
@@ -85,13 +85,23 @@ Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay)
         ])
       }
   )
-}
-
-bot.start(replyWithMenu)
+})
 
 bot.action('menu', async (ctx) => {
   await ctx.answerCbQuery()
-  await replyWithMenu(ctx)
+  ctx.session = {}
+  await ctx.editMessageText(`
+@WizardingPayBot is a log-free escrow wallet that supports use in various social software such as Telegram or Discord.
+
+Use /start to start using the bot. Join our [channel](https://t.me/wizardingpay) to receive news about updates.
+`, {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('💰 My Wallet', 'myWallet')],
+          [Markup.button.url('🌟 Star Project', 'https://github.com/wakandalabs/wizardingpay-telegram-bot')]
+        ])
+      }
+  )
 })
 
 bot.action('myWallet', async (ctx) => {
@@ -729,7 +739,7 @@ exports.handler = async (event, context, callback) => {
   });
 };
 
-// bot.launch().then(() => console.log('Bot launched...'))
+bot.launch().then(() => console.log('Bot launched...'))
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'))
